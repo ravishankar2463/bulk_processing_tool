@@ -76,3 +76,4 @@ class DynamicBatchChunkerTest {
         assertThat(batches.get(1).isLastBatch()).isTrue();
     }
 }
+

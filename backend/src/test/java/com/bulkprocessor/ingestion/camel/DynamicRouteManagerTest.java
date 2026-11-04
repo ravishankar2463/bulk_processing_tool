@@ -87,3 +87,4 @@ class DynamicRouteManagerTest {
         assertThat(camelContext.getRoute("removable-route")).isNull();
     }
 }
+
