@@ -109,3 +109,4 @@ class ConfigurationRepositoryTest {
         assertThat(errors.get(0).getSequenceNumber()).isEqualTo(1420L);
     }
 }
+
