@@ -86,5 +86,36 @@ class StreamingCsvSplitterTest {
         assertThat(records.get(0).payload().get("company_name")).isEqualTo("Acme, Inc.");
         assertThat(records.get(1).payload().get("company_name")).isEqualTo("Globex Corp, International");
     }
+
+    @Test
+    @DisplayName("Splits headerless CSV and assigns indexed column keys")
+    void shouldSplitHeaderlessCsv() {
+        String csvData = "val1,val2,val3\nval4,val5,val6\n";
+        InputStream input = new ByteArrayInputStream(csvData.getBytes(StandardCharsets.UTF_8));
+        JobContext context = new JobContext("job-3", "file-3", "noheader.csv", "local://noheader.csv", "proc-3", Map.of(), System.currentTimeMillis());
+
+        CsvSplitterConfig config = CsvSplitterConfig.builder()
+            .hasHeader(false)
+            .build();
+
+        StreamingCsvSplitter splitter = new StreamingCsvSplitter(config);
+        Iterator<RecordItem<Map<String, String>>> iterator = splitter.split(input, context);
+
+        List<RecordItem<Map<String, String>>> records = new ArrayList<>();
+        iterator.forEachRemaining(records::add);
+
+        assertThat(records).hasSize(2);
+        assertThat(records.get(0).payload()).containsEntry("col_0", "val1")
+            .containsEntry("col_1", "val2");
+    }
+
+    @Test
+    @DisplayName("Supports csv extension and text/csv mime type")
+    void shouldReportSupportedMimeTypes() {
+        StreamingCsvSplitter splitter = new StreamingCsvSplitter(CsvSplitterConfig.builder().build());
+        assertThat(splitter.supports("csv", "text/csv")).isTrue();
+        assertThat(splitter.supports("CSV", "application/octet-stream")).isTrue();
+        assertThat(splitter.supports("json", "application/json")).isFalse();
+    }
 }
 

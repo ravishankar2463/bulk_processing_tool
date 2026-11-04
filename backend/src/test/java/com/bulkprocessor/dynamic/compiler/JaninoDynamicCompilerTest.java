@@ -71,5 +71,17 @@ class JaninoDynamicCompilerTest {
             compiler.compileValidator("malicious-2", runtimeScript)
         );
     }
+
+    @Test
+    @DisplayName("Caches compiled validator instances and supports eviction")
+    void shouldCacheAndEvictValidators() throws Exception {
+        String script = "return com.bulkprocessor.core.dynamic.DynamicValidatorScript.ValidationResult.valid();";
+        DynamicValidatorScript compiled = compiler.compileValidator("cached-v1", script);
+
+        assertThat(compiler.getCachedValidator("cached-v1")).isSameAs(compiled);
+
+        compiler.evict("cached-v1");
+        assertThat(compiler.getCachedValidator("cached-v1")).isNull();
+    }
 }
 
