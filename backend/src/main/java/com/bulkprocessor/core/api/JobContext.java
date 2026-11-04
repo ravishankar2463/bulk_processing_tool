@@ -22,3 +22,4 @@ public record JobContext(
         parameters = parameters == null ? Map.of() : Collections.unmodifiableMap(Map.copyOf(parameters));
     }
 }
+

@@ -21,3 +21,4 @@ public record FileBatch<T>(
         records = records == null ? List.of() : Collections.unmodifiableList(List.copyOf(records));
     }
 }
+

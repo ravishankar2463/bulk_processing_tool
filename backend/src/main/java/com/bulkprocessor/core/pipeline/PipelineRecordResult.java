@@ -18,3 +18,4 @@ public record PipelineRecordResult<T>(
         return new PipelineRecordResult<>(false, null, stepName, message, cause);
     }
 }
+

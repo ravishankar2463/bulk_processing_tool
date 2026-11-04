@@ -32,3 +32,4 @@ public record StepResult<O>(
         return new StepResult<>(Status.FAILED_FATAL, null, errorMessage, cause);
     }
 }
+

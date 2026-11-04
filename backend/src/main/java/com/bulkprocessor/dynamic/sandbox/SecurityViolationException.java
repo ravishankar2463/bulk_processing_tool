@@ -15,3 +15,4 @@ public class SecurityViolationException extends RuntimeException {
         return prohibitedPattern;
     }
 }
+

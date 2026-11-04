@@ -10,3 +10,4 @@ public class BulkProcessorApplication {
         SpringApplication.run(BulkProcessorApplication.class, args);
     }
 }
+

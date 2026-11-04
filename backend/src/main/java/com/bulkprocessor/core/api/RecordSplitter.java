@@ -11,3 +11,4 @@ public interface RecordSplitter<T> {
     Iterator<RecordItem<T>> split(InputStream inputStream, JobContext context);
     boolean supports(String fileExtension, String mimeType);
 }
+

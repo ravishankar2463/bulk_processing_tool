@@ -82,3 +82,4 @@
 - `7a95d38`: `test: add failing tests for core domain, streaming splitter, dynamic compiler, and pipeline (RED)`
 - `9f77aa6`: `feat: implement core domain models, streaming csv splitter, dynamic janino compiler, and process pipeline (GREEN)`
 - `47cf810`: `refactor: add jacoco coverage plugin and expand boundary test cases for splitter and dynamic compiler`
+

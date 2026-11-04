@@ -106,3 +106,4 @@ public class ProcessPipeline {
         return PipelineRecordResult.success((T) currentPayload);
     }
 }
+

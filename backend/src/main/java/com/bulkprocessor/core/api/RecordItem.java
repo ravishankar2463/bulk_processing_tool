@@ -19,3 +19,4 @@ public record RecordItem<T>(
         metadata = metadata == null ? Map.of() : Collections.unmodifiableMap(Map.copyOf(metadata));
     }
 }
+
