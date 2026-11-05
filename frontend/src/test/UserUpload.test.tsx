@@ -45,3 +45,4 @@ describe('UserUpload Component', () => {
     expect(selectedRoute).toBe('csv-customer-ingest');
   });
 });
+

@@ -44,3 +44,4 @@ describe('AdminComponentEditor Component', () => {
     expect(savedData.sourceCode).toContain('// updated logic');
   });
 });
+

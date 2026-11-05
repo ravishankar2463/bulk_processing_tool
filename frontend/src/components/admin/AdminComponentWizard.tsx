@@ -237,3 +237,4 @@ export const AdminComponentWizard: React.FC<Props> = ({ onSave, onCancel }) => {
     </div>
   );
 };
+
