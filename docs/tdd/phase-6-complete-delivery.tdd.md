@@ -152,3 +152,25 @@ b8fa0e3 test: add frontend unit tests for AdminComponentWizard and UserDashboard
 b6e0477 feat: implement DynamicRouteManager, DynamicBatchChunker, and JPA repositories (GREEN)
 ...
 ```
+
+---
+
+## 5. Operational Resolution & Port Binding Fixes (Post-Phase 6)
+
+- **Issue:** User received `http://localhost:5173/ Hmmm… can't reach this page / localhost refused to connect`.
+- **Root Causes Identified:**
+  1. `application.yml` was missing in `backend/src/main/resources/`, causing Spring Boot to crash on launch when looking for datasource configurations outside the test profile.
+  2. `frontend/vite.config.ts` was hardcoded to `port: 3000`. On machines where 3000/3001 were occupied, Vite auto-shifted to port 3002 while orchestrator and browser targeted `http://localhost:5173`.
+  3. PowerShell variable `$MyInvocation.MyCommand.Path` evaluated to null in non-interactive subshell contexts, failing path resolution.
+  4. Docker Compose v2 emitted an obsolete `version` attribute warning on stderr which triggered PowerShell `$ErrorActionPreference = "Stop"`.
+  5. The watchdog script did not handle initial startup delay of the terminal PID, causing premature cleanup triggers.
+- **Remediations Applied:**
+  1. Created `backend/src/main/resources/application.yml` with PostgreSQL datasource, Flyway migrations, Redis, Kafka KRaft, and Project Loom virtual threads enabled.
+  2. Updated `frontend/vite.config.ts` with pinned `port: 5173`, `strictPort: true`, and `host: true`.
+  3. Fixed path resolution across all launcher scripts to use `$PSScriptRoot` with fallback to `(Get-Location).Path`.
+  4. Removed obsolete `version: '3.8'` from `docker-compose.yml`.
+  5. Hardened `scripts/watchdog.ps1` with retry loops and graceful exit without cleanup if terminal PID is not found at launch.
+  6. Added output redirection to `.run/backend.log` and `.run/frontend.log` with automatic error tailing in `scripts/orchestrator.ps1`.
+  7. Verified: all 40 backend tests pass (JaCoCo >88%), all 18 frontend tests pass, Vite build passes, and both `http://localhost:5173` and `http://localhost:8080` respond with HTTP 200.
+
+

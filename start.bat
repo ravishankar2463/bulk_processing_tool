@@ -1,5 +1,5 @@
 @echo off
 rem start.bat - Double-click or run from CMD to launch all services in a new terminal
 title Enterprise Bulk Processor Launcher
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1"
+start "Enterprise Bulk Processor" powershell.exe -NoExit -ExecutionPolicy Bypass -File "%~dp0scripts\orchestrator.ps1"
 

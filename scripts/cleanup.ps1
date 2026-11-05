@@ -2,11 +2,20 @@
 # Idempotent cleanup script to terminate backend, frontend, and bring down docker containers.
 
 $ErrorActionPreference = "SilentlyContinue"
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 $WorkspaceRoot = Split-Path -Parent $ScriptDir
 $RunDir = Join-Path $WorkspaceRoot ".run"
 
 Write-Host "Stopping services and cleaning up resources..." -ForegroundColor Yellow
+
+# 0. Terminate any running watchdog processes
+try {
+    Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%watchdog%'" -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.ProcessId -ne $PID) {
+            & taskkill.exe /PID $_.ProcessId /T /F 2>$null | Out-Null
+        }
+    }
+} catch {}
 
 # 1. Kill backend process tree
 $BackendPidFile = Join-Path $RunDir "backend.pid"
@@ -54,6 +63,8 @@ Set-Location $WorkspaceRoot
 
 # 5. Clean up lockfiles
 Remove-Item (Join-Path $RunDir "terminal.pid") -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $RunDir "run-backend.ps1") -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $RunDir "run-frontend.ps1") -Force -ErrorAction SilentlyContinue
 
 Write-Host "All services stopped and infrastructure brought down." -ForegroundColor Green
 
