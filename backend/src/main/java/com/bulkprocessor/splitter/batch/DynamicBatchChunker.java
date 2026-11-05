@@ -14,9 +14,14 @@ import java.util.UUID;
 /**
  * Partitions an Iterator of RecordItems into sized FileBatches with accurate isLastBatch indicators.
  */
+@org.springframework.stereotype.Component
 public class DynamicBatchChunker {
 
     private final int batchSize;
+
+    public DynamicBatchChunker() {
+        this(500);
+    }
 
     public DynamicBatchChunker(int batchSize) {
         if (batchSize <= 0) {

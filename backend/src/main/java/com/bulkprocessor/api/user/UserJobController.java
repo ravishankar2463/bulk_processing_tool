@@ -23,13 +23,16 @@ public class UserJobController {
     private final BulkJobRepository bulkJobRepository;
     private final BulkRecordErrorRepository bulkRecordErrorRepository;
     private final com.bulkprocessor.service.BulkReportService bulkReportService;
+    private final com.bulkprocessor.service.JobCoordinatorService jobCoordinatorService;
 
     public UserJobController(BulkJobRepository bulkJobRepository,
                              BulkRecordErrorRepository bulkRecordErrorRepository,
-                             com.bulkprocessor.service.BulkReportService bulkReportService) {
+                             com.bulkprocessor.service.BulkReportService bulkReportService,
+                             com.bulkprocessor.service.JobCoordinatorService jobCoordinatorService) {
         this.bulkJobRepository = bulkJobRepository;
         this.bulkRecordErrorRepository = bulkRecordErrorRepository;
         this.bulkReportService = bulkReportService;
+        this.jobCoordinatorService = jobCoordinatorService;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -51,6 +54,12 @@ public class UserJobController {
         job.setFailedRecords(0L);
 
         BulkJobEntity saved = bulkJobRepository.save(job);
+
+        try {
+            byte[] bytes = file.getBytes();
+            jobCoordinatorService.executeJobAsync(saved.getJobId(), new java.io.ByteArrayInputStream(bytes), 500);
+        } catch (Exception ignored) {}
+
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(saved);
     }
 

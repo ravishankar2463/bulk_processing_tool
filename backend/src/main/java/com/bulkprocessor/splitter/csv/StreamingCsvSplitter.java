@@ -20,9 +20,14 @@ import java.util.UUID;
  * Memory-safe CSV record splitter using Univocity Parsers.
  * Returns a lazy Iterator ensuring O(1) heap consumption regardless of file size.
  */
+@org.springframework.stereotype.Component
 public class StreamingCsvSplitter implements RecordSplitter<Map<String, String>> {
 
     private final CsvSplitterConfig config;
+
+    public StreamingCsvSplitter() {
+        this(CsvSplitterConfig.builder().build());
+    }
 
     public StreamingCsvSplitter(CsvSplitterConfig config) {
         this.config = Objects.requireNonNull(config, "config must not be null");
