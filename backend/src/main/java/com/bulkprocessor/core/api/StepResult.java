@@ -24,8 +24,16 @@ public record StepResult<O>(
         return new StepResult<>(Status.SKIPPED, null, null, null);
     }
 
+    public static <O> StepResult<O> failedRetryable(String errorMessage) {
+        return new StepResult<>(Status.FAILED_RETRYABLE, null, errorMessage, null);
+    }
+
     public static <O> StepResult<O> failedRetryable(String errorMessage, Throwable cause) {
         return new StepResult<>(Status.FAILED_RETRYABLE, null, errorMessage, cause);
+    }
+
+    public static <O> StepResult<O> failedFatal(String errorMessage) {
+        return new StepResult<>(Status.FAILED_FATAL, null, errorMessage, null);
     }
 
     public static <O> StepResult<O> failedFatal(String errorMessage, Throwable cause) {

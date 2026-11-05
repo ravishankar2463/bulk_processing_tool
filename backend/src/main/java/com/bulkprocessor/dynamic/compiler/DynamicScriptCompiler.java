@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
  * In-memory compiler for user-supplied dynamic script snippets.
  * Enforces security sandbox validation before compiling into bytecode via Janino.
  */
+@org.springframework.stereotype.Component
 public class DynamicScriptCompiler {
 
     private final Map<String, DynamicValidatorScript> validatorCache = new ConcurrentHashMap<>();

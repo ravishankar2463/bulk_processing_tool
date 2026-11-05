@@ -10,5 +10,6 @@ import java.util.List;
 public interface ComponentInstanceRepository extends JpaRepository<ComponentInstanceEntity, String> {
     List<ComponentInstanceEntity> findByComponentType(String componentType);
     List<ComponentInstanceEntity> findByIsActiveTrue();
+    List<ComponentInstanceEntity> findByComponentTypeAndIsActiveTrue(String componentType);
 }
 

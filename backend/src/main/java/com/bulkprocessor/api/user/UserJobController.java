@@ -22,10 +22,14 @@ public class UserJobController {
 
     private final BulkJobRepository bulkJobRepository;
     private final BulkRecordErrorRepository bulkRecordErrorRepository;
+    private final com.bulkprocessor.service.BulkReportService bulkReportService;
 
-    public UserJobController(BulkJobRepository bulkJobRepository, BulkRecordErrorRepository bulkRecordErrorRepository) {
+    public UserJobController(BulkJobRepository bulkJobRepository,
+                             BulkRecordErrorRepository bulkRecordErrorRepository,
+                             com.bulkprocessor.service.BulkReportService bulkReportService) {
         this.bulkJobRepository = bulkJobRepository;
         this.bulkRecordErrorRepository = bulkRecordErrorRepository;
+        this.bulkReportService = bulkReportService;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -71,24 +75,14 @@ public class UserJobController {
     public ResponseEntity<String> downloadReport(@PathVariable String jobId) {
         return bulkJobRepository.findById(jobId)
             .map(job -> {
-                StringBuilder csv = new StringBuilder();
-                csv.append("Job ID,File Name,Status,Total Records,Processed Records,Successful Records,Failed Records,Start Time\n");
-                csv.append(String.format("%s,%s,%s,%d,%d,%d,%d,%s\n",
-                    job.getJobId(),
-                    job.getFileName(),
-                    job.getStatus(),
-                    job.getTotalRecords() != null ? job.getTotalRecords() : 0,
-                    job.getProcessedRecords() != null ? job.getProcessedRecords() : 0,
-                    job.getSuccessfulRecords() != null ? job.getSuccessfulRecords() : 0,
-                    job.getFailedRecords() != null ? job.getFailedRecords() : 0,
-                    job.getStartTime() != null ? job.getStartTime().toString() : ""
-                ));
+                List<BulkRecordErrorEntity> errors = bulkRecordErrorRepository.findByJobId(jobId);
+                String csv = bulkReportService.generateCsvReport(job, errors);
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"report-" + jobId + ".csv\"");
                 headers.setContentType(MediaType.parseMediaType("text/csv"));
 
-                return new ResponseEntity<>(csv.toString(), headers, HttpStatus.OK);
+                return new ResponseEntity<>(csv, headers, HttpStatus.OK);
             })
             .orElse(ResponseEntity.notFound().build());
     }
