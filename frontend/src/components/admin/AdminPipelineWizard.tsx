@@ -206,3 +206,4 @@ export const AdminPipelineWizard: React.FC<Props> = ({ onSave, onCancel }) => {
     </div>
   );
 };
+

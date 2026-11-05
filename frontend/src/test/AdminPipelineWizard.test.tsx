@@ -28,3 +28,4 @@ describe('AdminPipelineWizard Component', () => {
     expect(screen.getByText('Step 4: Batch Processing')).toBeInTheDocument();
   });
 });
+
