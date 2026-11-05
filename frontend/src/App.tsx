@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { Layers, ShieldCheck, Cpu, UploadCloud, Activity, Settings, Plus, Code2, Database } from 'lucide-react';
+import { Layers, ShieldCheck, Cpu, UploadCloud, Activity, Settings, Plus, Code2, Database, AlertOctagon, GitMerge } from 'lucide-react';
 import { UserDashboard, UserJob } from './components/user/UserDashboard';
 import { UserUpload, RouteOption } from './components/user/UserUpload';
+import { UserErrorInspector } from './components/user/UserErrorInspector';
 import { AdminRouteStudio, RouteConfigData } from './components/admin/AdminRouteStudio';
 import { AdminComponentWizard, ComponentInstanceData } from './components/admin/AdminComponentWizard';
 import { AdminComponentEditor } from './components/admin/AdminComponentEditor';
+import { AdminDlqConsole, DlqErrorItem } from './components/admin/AdminDlqConsole';
+import { AdminPipelineWizard, PipelineDefinitionData } from './components/admin/AdminPipelineWizard';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'USER' | 'ADMIN'>('USER');
-  const [adminSubTab, setAdminSubTab] = useState<'ROUTES' | 'COMPONENTS'>('ROUTES');
+  const [adminSubTab, setAdminSubTab] = useState<'ROUTES' | 'COMPONENTS' | 'DLQ'>('ROUTES');
+  const [userInspectingJobId, setUserInspectingJobId] = useState<string | null>(null);
 
   // User Portal State
-  const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
   const [jobs, setJobs] = useState<UserJob[]>([
     {
       jobId: 'job-101',
@@ -32,6 +35,28 @@ export const App: React.FC = () => {
       successfulRecords: 500,
       failedRecords: 0,
       startTime: new Date(Date.now() - 3600000).toISOString()
+    }
+  ]);
+
+  // DLQ Errors State
+  const [dlqErrors, setDlqErrors] = useState<DlqErrorItem[]>([
+    {
+      errorId: 101,
+      jobId: 'job-101',
+      sequenceNumber: 42,
+      stepName: 'DYNAMIC_VALIDATOR',
+      errorCode: 'MISSING_EMAIL',
+      errorMessage: 'Email is required on customer record',
+      rawPayload: '{"id": 42, "name": "John Doe", "email": ""}'
+    },
+    {
+      errorId: 102,
+      jobId: 'job-101',
+      sequenceNumber: 156,
+      stepName: 'DYNAMIC_VALIDATOR',
+      errorCode: 'INVALID_DOMAIN',
+      errorMessage: 'Domain @tempmail.com is rejected by corporate policy',
+      rawPayload: '{"id": 156, "name": "Fake User", "email": "fake@tempmail.com"}'
     }
   ]);
 
@@ -86,7 +111,7 @@ export const App: React.FC = () => {
     }
   ]);
 
-  const [activeModal, setActiveModal] = useState<'NONE' | 'WIZARD' | 'EDITOR' | 'UPLOAD'>('NONE');
+  const [activeModal, setActiveModal] = useState<'NONE' | 'WIZARD' | 'EDITOR' | 'UPLOAD' | 'PIPELINE_WIZARD'>('NONE');
   const [editingComponent, setEditingComponent] = useState<ComponentInstanceData | undefined>(undefined);
 
   // User Actions
@@ -132,6 +157,28 @@ export const App: React.FC = () => {
     setEditingComponent(undefined);
   };
 
+  const handleSavePipeline = (data: PipelineDefinitionData) => {
+    const newRoute: RouteConfigData = {
+      routeId: data.processId,
+      name: data.name,
+      status: 'ACTIVE',
+      sourceEndpoint: 'file://data/inbox',
+      splitterInstanceId: data.splitterInstanceId,
+      validatorInstanceId: data.validatorInstanceIds[0] || 'none',
+      processorInstanceId: data.processorInstanceIds[0] || 'none',
+      writerInstanceId: data.reportWriterInstanceId,
+      batchSize: data.batchSize,
+      parallelConsumers: 4
+    };
+    setRoutes([...routes, newRoute]);
+    setActiveModal('NONE');
+  };
+
+  const handleResubmitDlq = (errorId: number) => {
+    setDlqErrors(dlqErrors.filter(e => e.errorId !== errorId));
+    alert(`Record #${errorId} re-injected into processing queue.`);
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Navigation Header */}
@@ -153,7 +200,10 @@ export const App: React.FC = () => {
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
-              onClick={() => setActiveTab('USER')}
+              onClick={() => {
+                setActiveTab('USER');
+                setUserInspectingJobId(null);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -196,11 +246,20 @@ export const App: React.FC = () => {
       <main style={{ maxWidth: '1200px', margin: '32px auto', padding: '0 24px' }}>
         {activeTab === 'USER' && (
           <div>
-            <UserDashboard
-              jobs={jobs}
-              onDownloadReport={handleDownloadReport}
-              onUploadNew={() => setActiveModal('UPLOAD')}
-            />
+            {userInspectingJobId ? (
+              <UserErrorInspector
+                jobId={userInspectingJobId}
+                errors={dlqErrors.filter(e => e.jobId === userInspectingJobId)}
+                onExportErrorCsv={() => alert(`Exporting failed rows CSV for ${userInspectingJobId}...`)}
+                onBack={() => setUserInspectingJobId(null)}
+              />
+            ) : (
+              <UserDashboard
+                jobs={jobs}
+                onDownloadReport={handleDownloadReport}
+                onUploadNew={() => setActiveModal('UPLOAD')}
+              />
+            )}
           </div>
         )}
 
@@ -208,7 +267,7 @@ export const App: React.FC = () => {
           <div>
             {/* Admin Subtabs */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', gap: '16px' }}>
+              <div style={{ display: 'flex', gap: '20px' }}>
                 <button
                   onClick={() => setAdminSubTab('ROUTES')}
                   style={{
@@ -238,6 +297,21 @@ export const App: React.FC = () => {
                   }}
                 >
                   Component Library
+                </button>
+                <button
+                  onClick={() => setAdminSubTab('DLQ')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px 0',
+                    fontSize: '15px',
+                    fontWeight: adminSubTab === 'DLQ' ? 700 : 500,
+                    color: adminSubTab === 'DLQ' ? '#2563eb' : '#64748b',
+                    borderBottom: adminSubTab === 'DLQ' ? '2px solid #2563eb' : 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  DLQ Error Console
                 </button>
               </div>
 
@@ -286,6 +360,27 @@ export const App: React.FC = () => {
                   </button>
                 </div>
               )}
+
+              {adminSubTab === 'ROUTES' && (
+                <button
+                  onClick={() => setActiveModal('PIPELINE_WIZARD')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <GitMerge size={14} /> Assemble Pipeline Wizard
+                </button>
+              )}
             </div>
 
             {adminSubTab === 'ROUTES' && (
@@ -293,7 +388,7 @@ export const App: React.FC = () => {
                 routes={routes}
                 onToggleStatus={handleToggleRoute}
                 onEditRoute={() => {}}
-                onCreateRoute={() => {}}
+                onCreateRoute={() => setActiveModal('PIPELINE_WIZARD')}
               />
             )}
 
@@ -347,6 +442,14 @@ export const App: React.FC = () => {
                 ))}
               </div>
             )}
+
+            {adminSubTab === 'DLQ' && (
+              <AdminDlqConsole
+                errors={dlqErrors}
+                onResubmit={handleResubmitDlq}
+                onRefresh={() => {}}
+              />
+            )}
           </div>
         )}
       </main>
@@ -390,6 +493,12 @@ export const App: React.FC = () => {
                 onCancel={() => setActiveModal('NONE')}
               />
             )}
+            {activeModal === 'PIPELINE_WIZARD' && (
+              <AdminPipelineWizard
+                onSave={handleSavePipeline}
+                onCancel={() => setActiveModal('NONE')}
+              />
+            )}
           </div>
         </div>
       )}
@@ -398,4 +507,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-
