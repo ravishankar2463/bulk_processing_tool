@@ -57,5 +57,26 @@ describe('AdminRouteStudio Component', () => {
 
     expect(toggledRouteId).toBe('csv-customer-ingest');
   });
+
+  it('triggers onEditRoute callback with selected route data when Edit button is clicked', () => {
+    let editedRoute: any = null;
+    render(
+      <AdminRouteStudio
+        routes={mockRoutes}
+        onToggleStatus={() => {}}
+        onEditRoute={(route) => { editedRoute = route; }}
+        onCreateRoute={() => {}}
+      />
+    );
+
+    const editBtn = screen.getByTestId('edit-route-btn-csv-customer-ingest');
+    expect(editBtn).toBeInTheDocument();
+    expect(editBtn).toHaveTextContent('Edit');
+    fireEvent.click(editBtn);
+
+    expect(editedRoute).not.toBeNull();
+    expect(editedRoute.routeId).toBe('csv-customer-ingest');
+    expect(editedRoute.name).toBe('Customer CSV Ingestion Pipeline');
+  });
 });
 

@@ -28,7 +28,7 @@ describe('UserDashboard Component', () => {
   ];
 
   it('renders live job cards with progress information', () => {
-    render(<UserDashboard jobs={mockJobs} onDownloadReport={() => {}} onUploadNew={() => {}} />);
+    render(<UserDashboard jobs={mockJobs} routes={[]} onDownloadReport={() => {}} onUploadNew={() => {}} />);
 
     expect(screen.getByText('Live Execution Dashboard')).toBeInTheDocument();
     expect(screen.getByText('customers.csv')).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe('UserDashboard Component', () => {
   });
 
   it('displays report download button for completed jobs', () => {
-    render(<UserDashboard jobs={mockJobs} onDownloadReport={() => {}} onUploadNew={() => {}} />);
+    render(<UserDashboard jobs={mockJobs} routes={[]} onDownloadReport={() => {}} onUploadNew={() => {}} />);
 
     const downloadButtons = screen.getAllByText('Download Report');
     expect(downloadButtons.length).toBeGreaterThan(0);

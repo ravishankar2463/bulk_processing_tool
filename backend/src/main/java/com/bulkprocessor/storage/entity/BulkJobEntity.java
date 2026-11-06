@@ -38,6 +38,24 @@ public class BulkJobEntity {
     @Column(name = "failed_records")
     private Long failedRecords = 0L;
 
+    @Column(name = "stage", length = 32)
+    private String stage = "DONE";
+
+    @Column(name = "file_size_bytes")
+    private Long fileSizeBytes = 0L;
+
+    @Column(name = "detected_encoding", length = 32)
+    private String detectedEncoding = "UTF-8";
+
+    @Column(name = "detected_delimiter", length = 16)
+    private String detectedDelimiter = ",";
+
+    @Column(name = "checksum_sha256", length = 128)
+    private String checksumSha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+    @Column(name = "loom_thread_allocation", length = 64)
+    private String loomThreadAllocation = "VirtualThread-Worker-1";
+
     @Column(name = "start_time")
     private Instant startTime = Instant.now();
 
@@ -80,6 +98,24 @@ public class BulkJobEntity {
 
     public Instant getEndTime() { return endTime; }
     public void setEndTime(Instant endTime) { this.endTime = endTime; }
+
+    public String getStage() { return stage != null ? stage : "DONE"; }
+    public void setStage(String stage) { this.stage = stage; }
+
+    public Long getFileSizeBytes() { return fileSizeBytes != null ? fileSizeBytes : 0L; }
+    public void setFileSizeBytes(Long fileSizeBytes) { this.fileSizeBytes = fileSizeBytes; }
+
+    public String getDetectedEncoding() { return detectedEncoding != null ? detectedEncoding : "UTF-8"; }
+    public void setDetectedEncoding(String detectedEncoding) { this.detectedEncoding = detectedEncoding; }
+
+    public String getDetectedDelimiter() { return detectedDelimiter != null ? detectedDelimiter : ","; }
+    public void setDetectedDelimiter(String detectedDelimiter) { this.detectedDelimiter = detectedDelimiter; }
+
+    public String getChecksumSha256() { return checksumSha256 != null ? checksumSha256 : "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; }
+    public void setChecksumSha256(String checksumSha256) { this.checksumSha256 = checksumSha256; }
+
+    public String getLoomThreadAllocation() { return loomThreadAllocation != null ? loomThreadAllocation : "VirtualThread-Worker-1"; }
+    public void setLoomThreadAllocation(String loomThreadAllocation) { this.loomThreadAllocation = loomThreadAllocation; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

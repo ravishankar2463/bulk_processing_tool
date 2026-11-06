@@ -10,5 +10,8 @@ import java.util.List;
 public interface BulkJobRepository extends JpaRepository<BulkJobEntity, String> {
     List<BulkJobEntity> findByStatus(String status);
     List<BulkJobEntity> findByOrderByStartTimeDesc();
+    List<BulkJobEntity> findByProcessIdOrderByStartTimeDesc(String processId);
+    long countByProcessIdAndStatusIn(String processId, java.util.Collection<String> statuses);
+    long countByProcessId(String processId);
 }
 

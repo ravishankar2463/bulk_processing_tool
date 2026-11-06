@@ -36,6 +36,7 @@ dist/
 
 ### Runtime Temporary PIDs ###
 .run/
+.agents/
 
 ### OS ###
 .DS_Store
