@@ -133,7 +133,7 @@ class AdminRouteTopologyControllerTest {
                 .content(objectMapper.writeValueAsString(invalidStreamTopology)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.valid", is(false)))
-            .andExpect(jsonPath("$.errors", hasItem(containsString("End connector (terminal) cannot have outgoing stream connections"))))
-            .andExpect(jsonPath("$.errors", hasItem(containsString("Start connector (ingress source) cannot receive incoming stream connections"))));
+            .andExpect(jsonPath("$.errors", hasItem(containsString("End node (terminal) cannot have outgoing stream connections"))))
+            .andExpect(jsonPath("$.errors", hasItem(containsString("Start node (ingress source) cannot receive incoming stream connections"))));
     }
 }

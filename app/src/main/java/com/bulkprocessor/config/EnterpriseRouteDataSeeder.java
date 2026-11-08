@@ -74,57 +74,53 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
         }
 
         private void seedConnectorDefinitions() {
-                if (connectorDefinitionRepository.count() > 0) {
-                        return;
-                }
-
                 seedConnectorDef(
                                 "conn-def-csv",
-                                "CSV Ingestion Connector",
+                                "CSV Ingestion Node",
                                 "SOURCE",
                                 "START",
                                 "CSV",
-                                "High-throughput streaming CSV source supporting Manual Upload, AWS S3, and SFTP with dynamic field schema and type coercion.",
+                                "High-throughput streaming CSV node supporting Manual Upload, AWS S3, and SFTP with dynamic field schema and type coercion.",
                                 "file-spreadsheet",
                                 false,
                                 "{\"properties\":[{\"key\":\"sourceType\",\"label\":\"CSV Source Type\",\"type\":\"select\",\"options\":[\"MANUAL_UPLOAD\",\"S3_BUCKET\",\"SFTP_SERVER\",\"LOCAL_DIRECTORY\"],\"defaultValue\":\"MANUAL_UPLOAD\",\"required\":true},{\"key\":\"s3Uri\",\"label\":\"S3 Location URI\",\"type\":\"string\",\"placeholder\":\"s3://my-enterprise-bucket/inbox/*.csv\",\"required\":false},{\"key\":\"delimiter\",\"label\":\"Field Delimiter\",\"type\":\"select\",\"options\":[\",\",\";\",\"\\t\",\"|\"],\"defaultValue\":\",\",\"required\":true},{\"key\":\"hasHeader\",\"label\":\"Has Header Row\",\"type\":\"boolean\",\"defaultValue\":true,\"required\":true},{\"key\":\"quoteChar\",\"label\":\"Quote Character\",\"type\":\"string\",\"defaultValue\":\"\\\"\",\"required\":false},{\"key\":\"charset\",\"label\":\"Encoding Charset\",\"type\":\"select\",\"options\":[\"UTF-8\",\"ISO-8859-1\",\"US-ASCII\"],\"defaultValue\":\"UTF-8\",\"required\":true},{\"key\":\"fields\",\"label\":\"CSV Schema Fields\",\"type\":\"fields_schema\",\"required\":true}]}");
 
                 seedConnectorDef(
                                 "conn-def-rest-json",
-                                "REST JSON Connector (Req & Res Pair)",
+                                "REST JSON Node (Sub-DAG)",
                                 "PROCESSOR",
                                 "MIDDLE",
                                 "REST_JSON",
-                                "Composite HTTP REST client instantiating paired Request and Response nodes for record enrichment, payload generation, and JSONPath extraction.",
+                                "Sub-DAG HTTP REST client encapsulating paired Request and Response nodes for record enrichment, payload generation, and JSONPath extraction.",
                                 "globe",
                                 true,
                                 "{\"properties\":[{\"key\":\"method\",\"label\":\"HTTP Method\",\"type\":\"select\",\"options\":[\"GET\",\"POST\",\"PUT\",\"PATCH\",\"DELETE\"],\"defaultValue\":\"POST\",\"required\":true},{\"key\":\"endpointUrl\",\"label\":\"Endpoint URL\",\"type\":\"string\",\"placeholder\":\"https://api.internal.corp/v1/enrich/${id}\",\"required\":true},{\"key\":\"authType\",\"label\":\"Authentication\",\"type\":\"select\",\"options\":[\"NONE\",\"BEARER_TOKEN\",\"API_KEY_HEADER\",\"BASIC_AUTH\"],\"defaultValue\":\"NONE\",\"required\":true},{\"key\":\"headers\",\"label\":\"HTTP Headers\",\"type\":\"key_value\",\"required\":false},{\"key\":\"bodyTemplate\",\"label\":\"Request Body Template\",\"type\":\"string\",\"placeholder\":\"{\\\"customerId\\\": \\\"${id}\\\", \\\"email\\\": \\\"${email}\\\"}\",\"required\":false},{\"key\":\"timeoutMs\",\"label\":\"Timeout (ms)\",\"type\":\"number\",\"defaultValue\":5000,\"required\":true},{\"key\":\"responseExtractMap\",\"label\":\"JSONPath Field Extractions\",\"type\":\"key_value\",\"required\":false}]}");
 
                 seedConnectorDef(
                                 "conn-def-soap-xml",
-                                "SOAP XML Connector (Req & Res Pair)",
+                                "SOAP XML Node (Sub-DAG)",
                                 "PROCESSOR",
                                 "MIDDLE",
                                 "SOAP_XML",
-                                "Composite SOAP Web Service client instantiating XML Request Envelope generator and XML Response XPath extractor.",
+                                "Sub-DAG SOAP Web Service client encapsulating XML Request Envelope generator and XML Response XPath extractor nodes.",
                                 "code-2",
                                 true,
                                 "{\"properties\":[{\"key\":\"wsdlUrl\",\"label\":\"WSDL or Service URL\",\"type\":\"string\",\"placeholder\":\"https://legacy.corp/ws/CustomerService?wsdl\",\"required\":true},{\"key\":\"soapAction\",\"label\":\"SOAPAction Header\",\"type\":\"string\",\"placeholder\":\"urn:ProcessCustomerRecord\",\"required\":false},{\"key\":\"soapVersion\",\"label\":\"SOAP Protocol Version\",\"type\":\"select\",\"options\":[\"1.1\",\"1.2\"],\"defaultValue\":\"1.1\",\"required\":true},{\"key\":\"envelopeTemplate\",\"label\":\"SOAP Request Envelope Template\",\"type\":\"string\",\"placeholder\":\"<soapenv:Envelope xmlns:soapenv=\\\"http://schemas.xmlsoap.org/soap/envelope/\\\"><soapenv:Body><CustomerRequest id=\\\"${id}\\\"/></soapenv:Body></soapenv:Envelope>\",\"required\":true},{\"key\":\"xpathExtractMap\",\"label\":\"XPath Field Extractions\",\"type\":\"key_value\",\"required\":false}]}");
 
                 seedConnectorDef(
                                 "conn-def-db-sink",
-                                "Database JDBC Sink Connector",
+                                "Database JDBC Sink Node",
                                 "SINK",
                                 "END",
                                 "DATABASE",
-                                "Relational database writer with batch inserts, upsert support, and connection pooling.",
+                                "Relational database sink node with batch inserts, upsert support, and connection pooling.",
                                 "database",
                                 false,
                                 "{\"properties\":[{\"key\":\"jdbcUrl\",\"label\":\"JDBC Connection URL\",\"type\":\"string\",\"placeholder\":\"jdbc:postgresql://postgres:5432/bulk_analytics\",\"required\":true},{\"key\":\"targetTable\",\"label\":\"Target Table\",\"type\":\"string\",\"placeholder\":\"processed_records\",\"required\":true},{\"key\":\"batchSize\",\"label\":\"Batch Insert Size\",\"type\":\"number\",\"defaultValue\":1000,\"required\":true},{\"key\":\"upsertKey\",\"label\":\"Conflict / Upsert Key\",\"type\":\"string\",\"required\":false}]}");
 
                 seedConnectorDef(
                                 "conn-def-terminal-sink",
-                                "Terminal Completion Sink",
+                                "Terminal Completion Sink Node",
                                 "SINK",
                                 "END",
                                 "TERMINAL",
@@ -135,22 +131,22 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
 
                 seedConnectorDef(
                                 "conn-def-retry-gateway",
-                                "Retry & Delay Gateway",
+                                "Retry & Delay Gateway Node",
                                 "PROCESSOR",
                                 "MIDDLE",
                                 "RETRY_GATEWAY",
-                                "Resilience router implementing exponential backoff, jittered retries, and exhaustion routing to Dead Letter Queues (DLQ).",
+                                "Resilience router node implementing exponential backoff, jittered retries, and exhaustion routing to Dead Letter Queues (DLQ).",
                                 "refresh-cw",
                                 false,
                                 "{\"properties\":[{\"key\":\"maxRetries\",\"label\":\"Max Retry Attempts\",\"type\":\"number\",\"defaultValue\":3,\"required\":true},{\"key\":\"initialDelayMs\",\"label\":\"Initial Delay (ms)\",\"type\":\"number\",\"defaultValue\":1000,\"required\":true},{\"key\":\"backoffMultiplier\",\"label\":\"Backoff Multiplier\",\"type\":\"number\",\"defaultValue\":2.0,\"required\":true},{\"key\":\"maxDelayMs\",\"label\":\"Max Delay Ceiling (ms)\",\"type\":\"number\",\"defaultValue\":30000,\"required\":true},{\"key\":\"jitter\",\"label\":\"Add Randomized Jitter\",\"type\":\"boolean\",\"defaultValue\":true,\"required\":false}]}");
 
                 seedConnectorDef(
                                 "conn-def-composite-subflow",
-                                "Encapsulated Service Sub-Flow",
+                                "Encapsulated Service Sub-DAG Node",
                                 "PROCESSOR",
                                 "MIDDLE",
                                 "COMPOSITE_SUBFLOW",
-                                "Encapsulated sub-DAG container bundling Ingress, Request, Response extraction, and Branch Decision Routing in a drill-down canvas.",
+                                "Encapsulated sub-DAG container node bundling Ingress, Request, Response extraction, and Branch Decision Routing in a drill-down canvas.",
                                 "layers",
                                 true,
                                 "{\"properties\":[{\"key\":\"serviceName\",\"label\":\"Service Block Name\",\"type\":\"string\",\"defaultValue\":\"REST Customer Enrichment Service\",\"required\":true}]}");
@@ -159,8 +155,12 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
         private void seedConnectorDef(
                         String id, String name, String category, String streamRole, String protocol,
                         String description, String icon, boolean composite, String manifest) {
-                ConnectorDefinitionEntity entity = new ConnectorDefinitionEntity();
-                entity.setDefinitionId(id);
+                ConnectorDefinitionEntity entity = connectorDefinitionRepository.findById(id).orElseGet(() -> {
+                        ConnectorDefinitionEntity e = new ConnectorDefinitionEntity();
+                        e.setDefinitionId(id);
+                        e.setCreatedAt(Instant.now());
+                        return e;
+                });
                 entity.setName(name);
                 entity.setCategory(category);
                 entity.setStreamRole(streamRole);
@@ -171,7 +171,6 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                 entity.setPropertyManifest(manifest);
                 entity.setBuiltIn(true);
                 entity.setVersion(1);
-                entity.setCreatedAt(Instant.now());
                 entity.setUpdatedAt(Instant.now());
                 connectorDefinitionRepository.save(entity);
         }
@@ -180,7 +179,7 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                 seedComponent(
                                 "splitter-csv-univocity",
                                 "SPLITTER",
-                                "Streaming CSV Splitter",
+                                "Streaming CSV Splitter Node",
                                 "Univocity streaming CSV parser with virtual thread chunking and zero-copy buffering",
                                 "CODE_SNIPPET",
                                 "JAVA",
@@ -190,7 +189,7 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                 seedComponent(
                                 "val-customer-kyc",
                                 "VALIDATOR",
-                                "Customer KYC Email & Domain Validator",
+                                "Customer KYC Email & Domain Validator Node",
                                 "Ensures email syntax conforms to RFC 5322 and corporate domain compliance policies",
                                 "CODE_SNIPPET",
                                 "JAVA",
@@ -200,7 +199,7 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                 seedComponent(
                                 "val-order-schema",
                                 "VALIDATOR",
-                                "Order Amount & Currency Validator",
+                                "Order Amount & Currency Validator Node",
                                 "Validates positive monetary amounts and active ISO currency codes",
                                 "CODE_SNIPPET",
                                 "JAVA",
@@ -210,7 +209,7 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                 seedComponent(
                                 "proc-customer-enricher",
                                 "BATCH_PROCESSOR",
-                                "Customer Loyalty & Tier Enricher",
+                                "Customer Loyalty & Tier Enricher Node",
                                 "Calculates loyalty points and assigns bronze/silver/gold tier with Loom virtual thread execution",
                                 "CODE_SNIPPET",
                                 "JAVA",
@@ -220,7 +219,7 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                 seedComponent(
                                 "proc-tax-calc",
                                 "BATCH_PROCESSOR",
-                                "Regional Tax & VAT Calculator",
+                                "Regional Tax & VAT Calculator Node",
                                 "Calculates regional sales tax and international VAT rates",
                                 "CODE_SNIPPET",
                                 "JAVA",
@@ -230,7 +229,7 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                 seedComponent(
                                 "writer-audit-csv",
                                 "REPORT_WRITER",
-                                "Audit CSV & Ledger Sink",
+                                "Audit CSV & Ledger Sink Node",
                                 "Appends processed records into immutable audit log and general ledger storage",
                                 "CODE_SNIPPET",
                                 "JAVA",
@@ -241,22 +240,23 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
         private void seedComponent(
                         String id, String type, String name, String desc,
                         String execMode, String lang, String source, String sample) {
-                if (componentInstanceRepository.findById(id).isEmpty()) {
-                        ComponentInstanceEntity comp = new ComponentInstanceEntity();
-                        comp.setInstanceId(id);
-                        comp.setComponentType(type);
-                        comp.setName(name);
-                        comp.setDescription(desc);
-                        comp.setExecutionMode(execMode);
-                        comp.setLanguage(lang);
-                        comp.setSourceCode(source);
-                        comp.setSampleTestPayload(sample);
-                        comp.setVersion(1);
-                        comp.setActive(true);
-                        comp.setCreatedAt(Instant.now());
-                        comp.setUpdatedAt(Instant.now());
-                        componentInstanceRepository.save(comp);
-                }
+                ComponentInstanceEntity comp = componentInstanceRepository.findById(id).orElseGet(() -> {
+                        ComponentInstanceEntity c = new ComponentInstanceEntity();
+                        c.setInstanceId(id);
+                        c.setCreatedAt(Instant.now());
+                        return c;
+                });
+                comp.setComponentType(type);
+                comp.setName(name);
+                comp.setDescription(desc);
+                comp.setExecutionMode(execMode);
+                comp.setLanguage(lang);
+                comp.setSourceCode(source);
+                comp.setSampleTestPayload(sample);
+                comp.setVersion(1);
+                comp.setActive(true);
+                comp.setUpdatedAt(Instant.now());
+                componentInstanceRepository.save(comp);
         }
 
         private void seedProcessesAndRoutes() {

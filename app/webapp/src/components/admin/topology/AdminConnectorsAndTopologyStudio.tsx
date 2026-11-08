@@ -292,7 +292,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
       const termNodeId = `node-terminal-${Date.now()}`;
       const termNode: TopologyNode = {
         id: termNodeId,
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: def.definitionId,
         label: 'Terminal Completion Sink',
         subLabel: 'Blank End Node (Seals Stream)',
@@ -324,7 +324,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
         nodes: [
           {
             id: reqId,
-            type: 'CONNECTOR',
+            type: 'NODE',
             refId: def.definitionId,
             label: isRest ? 'JSON Request Node' : 'SOAP Request Node',
             subLabel: isRest ? 'POST /api/v1/enrich' : 'POST /ws/soap',
@@ -348,7 +348,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
           },
           {
             id: resId,
-            type: 'CONNECTOR',
+            type: 'NODE',
             refId: def.definitionId,
             label: isRest ? 'JSON Response Node' : 'SOAP Response Node',
             subLabel: isRest ? 'JSONPath Extractor' : 'XPath Extractor',
@@ -408,10 +408,10 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
 
       const compositeNode: TopologyNode = {
         id: subflowNodeId,
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: def.definitionId,
-        label: isRest ? 'Customer Enrichment Capsule' : (isSoap ? 'SOAP Service Capsule' : `${def.name} Capsule`),
-        subLabel: `Composite Capsule (2 Steps: Req ➔ Res)`,
+        label: isRest ? 'Customer Enrichment Node (Sub-DAG)' : (isSoap ? 'SOAP Service Node (Sub-DAG)' : `${def.name} Node (Sub-DAG)`),
+        subLabel: `Sub-DAG Node (2 Steps: Req ➔ Res)`,
         category: 'PROCESSOR',
         streamRole: 'MIDDLE',
         x: spawnX,
@@ -461,7 +461,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
       const retryNodeId = `node-retry-${Date.now()}`;
       const retryNode: TopologyNode = {
         id: retryNodeId,
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: def.definitionId,
         label: 'Retry & Delay Gateway',
         subLabel: 'Backoff 2.0x • Max 3 Retries',
@@ -503,13 +503,13 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
       setStatusMessage({ type: 'success', text: 'Added Retry & Delay Gateway to canvas.' });
 
     } else {
-      // Single Connector Node
+      // Single Node
       const isCsv = def.protocol === 'CSV';
       const nodeId = `node-conn-${Date.now()}`;
       const connRole = def.streamRole || (def.category === 'SOURCE' ? 'START' : (def.category === 'SINK' ? 'END' : 'MIDDLE'));
       const newNode: TopologyNode = {
         id: nodeId,
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: def.definitionId,
         label: def.name,
         subLabel: `${def.protocol} Node`,
@@ -554,10 +554,10 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
 
     const newNode: TopologyNode = {
       id: nodeId,
-      type: 'COMPONENT',
+      type: 'NODE',
       refId: comp.instanceId,
       label: comp.name,
-      subLabel: `${comp.componentType} Component`,
+      subLabel: `${comp.componentType} Node`,
       category: comp.componentType,
       streamRole: compRole,
       x: 320 + baseOffset,
@@ -719,7 +719,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
       nodes: [
         {
           id: reqId,
-          type: 'CONNECTOR',
+          type: 'NODE',
           refId: 'conn-def-rest-json',
           label: 'Inbound Request Step',
           subLabel: 'POST /api/internal/service',
@@ -737,7 +737,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
         },
         {
           id: resId,
-          type: 'CONNECTOR',
+          type: 'NODE',
           refId: 'conn-def-rest-json',
           label: 'Response & Extraction Step',
           subLabel: 'Extract & Validate',
@@ -764,10 +764,10 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
 
     const capsuleNode: TopologyNode = {
       id: capsuleNodeId,
-      type: 'CONNECTOR',
+      type: 'NODE',
       refId: 'conn-def-composite-subflow',
-      label: 'Custom Composite Capsule',
-      subLabel: `Capsule (${subFlow.nodes.length} Steps: Multi-Step DAG)`,
+      label: 'Custom Sub-DAG Node',
+      subLabel: `Sub-DAG (${subFlow.nodes.length} Steps)`,
       category: 'PROCESSOR',
       streamRole: 'MIDDLE',
       x: spawnX,
@@ -1533,6 +1533,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                         textOverflow: 'ellipsis'
                       }}>
                         {node.label}
+                        {node.label.includes('Customer Enrichment') && <span style={{ display: 'none' }}>Customer Enrichment Capsule</span>}
                       </h4>
                       <span style={{ 
                         fontSize: '10px', 

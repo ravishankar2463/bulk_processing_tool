@@ -22,7 +22,7 @@ public record RouteTopologyDto(
 
     public record TopologyNodeDto(
         String id,
-        String type, // COMPONENT, CONNECTOR, or NODE
+        String type, // Always NODE
         String refId,
         String label,
         String subLabel,
@@ -37,6 +37,26 @@ public record RouteTopologyDto(
         RouteTopologyDto subFlow,
         String barrierMode // STREAMING, FILE_COMPLETION_BARRIER
     ) {
+        public TopologyNodeDto {
+            if (type == null || type.isBlank() || "CONNECTOR".equalsIgnoreCase(type) || "COMPONENT".equalsIgnoreCase(type)) {
+                type = "NODE";
+            }
+            if (barrierMode == null || barrierMode.isBlank()) {
+                barrierMode = "STREAMING";
+            }
+            if (branchingPorts == null) {
+                branchingPorts = Collections.emptyList();
+            }
+            if (inputPorts == null) {
+                inputPorts = Collections.emptyList();
+            }
+            if (outputPorts == null) {
+                outputPorts = Collections.emptyList();
+            }
+            if (config == null) {
+                config = Collections.emptyMap();
+            }
+        }
         // Constructor without barrierMode (defaults to STREAMING)
         public TopologyNodeDto(
             String id,

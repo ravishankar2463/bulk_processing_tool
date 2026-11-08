@@ -40,7 +40,7 @@ class RouteTopologyServiceTest {
         assertThat(errors).isEmpty();
 
         boolean hasTerminalSink = topology.nodes().stream()
-                .anyMatch(n -> "node-terminal-sink".equals(n.id()) || "Terminal Completion Sink".equals(n.label()));
+                .anyMatch(n -> "node-terminal-sink".equals(n.id()) || n.label().contains("Terminal Completion Sink"));
         assertThat(hasTerminalSink).isTrue();
     }
 
@@ -48,8 +48,8 @@ class RouteTopologyServiceTest {
     @DisplayName("Validation fails when topology has no START node")
     void validationFailsWithoutStartNode() {
         List<TopologyNodeDto> nodes = List.of(
-                new TopologyNodeDto("n1", "CONNECTOR", "c1", "Processor", "Sub", "PROCESSOR", 100, 100, List.of("in"), List.of("out"), Map.of(), "MIDDLE"),
-                new TopologyNodeDto("n2", "CONNECTOR", "c2", "Sink", "Sub", "SINK", 300, 100, List.of("in"), List.of(), Map.of(), "END")
+                new TopologyNodeDto("n1", "NODE", "c1", "Processor", "Sub", "PROCESSOR", 100, 100, List.of("in"), List.of("out"), Map.of(), "MIDDLE"),
+                new TopologyNodeDto("n2", "NODE", "c2", "Sink", "Sub", "SINK", 300, 100, List.of("in"), List.of(), Map.of(), "END")
         );
         List<TopologyEdgeDto> edges = List.of(
                 new TopologyEdgeDto("e1", "n1", "out", "n2", "in")
@@ -57,15 +57,15 @@ class RouteTopologyServiceTest {
         RouteTopologyDto dto = new RouteTopologyDto("top-1", "route-1", nodes, edges, 1);
 
         List<String> errors = topologyService.validateTopologyGraph(dto);
-        assertThat(errors).anyMatch(e -> e.contains("START connector"));
+        assertThat(errors).anyMatch(e -> e.contains("START node"));
     }
 
     @Test
     @DisplayName("Validation fails when topology has no END node")
     void validationFailsWithoutEndNode() {
         List<TopologyNodeDto> nodes = List.of(
-                new TopologyNodeDto("n1", "CONNECTOR", "c1", "Start", "Sub", "SOURCE", 100, 100, List.of(), List.of("out"), Map.of(), "START"),
-                new TopologyNodeDto("n2", "CONNECTOR", "c2", "Processor", "Sub", "PROCESSOR", 300, 100, List.of("in"), List.of("out"), Map.of(), "MIDDLE")
+                new TopologyNodeDto("n1", "NODE", "c1", "Start", "Sub", "SOURCE", 100, 100, List.of(), List.of("out"), Map.of(), "START"),
+                new TopologyNodeDto("n2", "NODE", "c2", "Processor", "Sub", "PROCESSOR", 300, 100, List.of("in"), List.of("out"), Map.of(), "MIDDLE")
         );
         List<TopologyEdgeDto> edges = List.of(
                 new TopologyEdgeDto("e1", "n1", "out", "n2", "in")
@@ -73,15 +73,15 @@ class RouteTopologyServiceTest {
         RouteTopologyDto dto = new RouteTopologyDto("top-2", "route-2", nodes, edges, 1);
 
         List<String> errors = topologyService.validateTopologyGraph(dto);
-        assertThat(errors).anyMatch(e -> e.contains("END connector"));
+        assertThat(errors).anyMatch(e -> e.contains("END node"));
     }
 
     @Test
     @DisplayName("Validation fails when a Composite Capsule is configured as an END node")
     void validationFailsWhenCapsuleIsEndNode() {
         List<TopologyNodeDto> nodes = List.of(
-                new TopologyNodeDto("n1", "CONNECTOR", "c1", "Start", "Sub", "SOURCE", 100, 100, List.of(), List.of("out"), Map.of(), "START"),
-                new TopologyNodeDto("n-capsule", "CONNECTOR", "conn-def-composite-subflow", "Composite Capsule", "Sub", "SINK", 300, 100, List.of("in"), List.of(), Map.of("isSubFlow", true), "END")
+                new TopologyNodeDto("n1", "NODE", "c1", "Start", "Sub", "SOURCE", 100, 100, List.of(), List.of("out"), Map.of(), "START"),
+                new TopologyNodeDto("n-capsule", "NODE", "conn-def-composite-subflow", "Composite Capsule", "Sub", "SINK", 300, 100, List.of("in"), List.of(), Map.of("isSubFlow", true), "END")
         );
         List<TopologyEdgeDto> edges = List.of(
                 new TopologyEdgeDto("e1", "n1", "out", "n-capsule", "in")
@@ -89,7 +89,7 @@ class RouteTopologyServiceTest {
         RouteTopologyDto dto = new RouteTopologyDto("top-3", "route-3", nodes, edges, 1);
 
         List<String> errors = topologyService.validateTopologyGraph(dto);
-        assertThat(errors).anyMatch(e -> e.contains("Composite Capsule cannot be an END node"));
+        assertThat(errors).anyMatch(e -> e.contains("Sub-DAG container node cannot be an END node"));
     }
 
     @Test

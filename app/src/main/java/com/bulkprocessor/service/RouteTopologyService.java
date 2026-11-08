@@ -92,20 +92,20 @@ public class RouteTopologyService {
                 hasEnd = true;
             }
 
-            // A Composite Capsule can never be an END node
+            // A Sub-DAG container node can never be an END node
             boolean isCapsule = (node.subFlow() != null) ||
                 (node.config() != null && Boolean.TRUE.equals(node.config().get("isSubFlow"))) ||
                 (node.refId() != null && (node.refId().contains("subflow") || node.refId().contains("capsule")));
             if (isCapsule && "END".equalsIgnoreCase(role)) {
-                errors.add("Composite Capsule cannot be an END node: " + node.label());
+                errors.add("Sub-DAG container node cannot be an END node: " + node.label());
             }
         }
 
         if (!hasStart) {
-            errors.add("Topology stream must contain at least one START connector (stream source).");
+            errors.add("Topology stream must contain at least one START node (stream source).");
         }
         if (!hasEnd) {
-            errors.add("Topology stream must contain at least one END connector (stream sink/terminal).");
+            errors.add("Topology stream must contain at least one END node (stream sink/terminal).");
         }
 
         Set<String> nodesWithIncomingEdges = new HashSet<>();
@@ -121,7 +121,7 @@ public class RouteTopologyService {
                     String fromRole = fromNode.streamRole() != null ? fromNode.streamRole() :
                         ("SOURCE".equalsIgnoreCase(fromNode.category()) ? "START" : ("SINK".equalsIgnoreCase(fromNode.category()) ? "END" : "MIDDLE"));
                     if ("END".equalsIgnoreCase(fromRole)) {
-                        errors.add("End connector (terminal) cannot have outgoing stream connections: node " + edge.fromNodeId());
+                        errors.add("End node (terminal) cannot have outgoing stream connections: node " + edge.fromNodeId());
                     }
                 }
 
@@ -133,7 +133,7 @@ public class RouteTopologyService {
                     String toRole = toNode.streamRole() != null ? toNode.streamRole() :
                         ("SOURCE".equalsIgnoreCase(toNode.category()) ? "START" : ("SINK".equalsIgnoreCase(toNode.category()) ? "END" : "MIDDLE"));
                     if ("START".equalsIgnoreCase(toRole)) {
-                        errors.add("Start connector (ingress source) cannot receive incoming stream connections: node " + edge.toNodeId());
+                        errors.add("Start node (ingress source) cannot receive incoming stream connections: node " + edge.toNodeId());
                     }
                 }
             }
@@ -164,7 +164,7 @@ public class RouteTopologyService {
 
     private RouteTopologyDto toDto(RouteTopologyEntity entity) {
         try {
-            List<TopologyNodeDto> nodes = objectMapper.readValue(
+            List<TopologyNodeDto> rawNodes = objectMapper.readValue(
                 entity.getNodesJson(),
                 new TypeReference<List<TopologyNodeDto>>() {}
             );
@@ -172,6 +172,8 @@ public class RouteTopologyService {
                 entity.getEdgesJson(),
                 new TypeReference<List<TopologyEdgeDto>>() {}
             );
+            // Ensure all nodes and sub-DAG nodes have type="NODE" and cleaned "Node" labels
+            List<TopologyNodeDto> nodes = rawNodes.stream().map(this::normalizeNode).toList();
             return new RouteTopologyDto(
                 entity.getTopologyId(),
                 entity.getRouteId(),
@@ -185,14 +187,46 @@ public class RouteTopologyService {
         }
     }
 
+    private TopologyNodeDto normalizeNode(TopologyNodeDto n) {
+        String label = n.label();
+        if (label != null) {
+            label = label.replace(" Connector", " Node")
+                         .replace(" Capsule", " Node (Sub-DAG)");
+        }
+        RouteTopologyDto subFlow = n.subFlow();
+        if (subFlow != null && subFlow.nodes() != null) {
+            List<TopologyNodeDto> normalizedSubNodes = subFlow.nodes().stream()
+                .map(this::normalizeNode)
+                .toList();
+            subFlow = new RouteTopologyDto(subFlow.topologyId(), subFlow.routeId(), normalizedSubNodes, subFlow.edges(), subFlow.version());
+        }
+        return new TopologyNodeDto(
+            n.id(),
+            "NODE",
+            n.refId(),
+            label,
+            n.subLabel(),
+            n.category(),
+            n.x(),
+            n.y(),
+            n.inputPorts(),
+            n.outputPorts(),
+            n.config(),
+            n.streamRole(),
+            n.branchingPorts(),
+            subFlow,
+            n.barrierMode()
+        );
+    }
+
     private RouteTopologyDto synthesizeDefaultTopology(String routeId) {
         // Synthesize internal 2-step Sub-DAG (JSON Request -> JSON Response)
         List<TopologyNodeDto> subNodes = List.of(
             new TopologyNodeDto(
                 "sub-rest-req",
-                "CONNECTOR",
+                "NODE",
                 "conn-def-rest-json",
-                "JSON Request Connector",
+                "JSON Request Node",
                 "POST /api/v1/enrich",
                 "PROCESSOR",
                 120,
@@ -209,9 +243,9 @@ public class RouteTopologyService {
             ),
             new TopologyNodeDto(
                 "sub-rest-res",
-                "CONNECTOR",
+                "NODE",
                 "conn-def-rest-json",
-                "JSON Response Connector",
+                "JSON Response Node",
                 "JSONPath Enrichment Mapper",
                 "PROCESSOR",
                 460,
@@ -246,9 +280,9 @@ public class RouteTopologyService {
         List<TopologyNodeDto> nodes = List.of(
             new TopologyNodeDto(
                 "node-source-csv",
-                "CONNECTOR",
+                "NODE",
                 "conn-def-csv",
-                "CSV Ingestion Connector",
+                "CSV Ingestion Node",
                 "Manual / S3 File Source",
                 "SOURCE",
                 100,
@@ -270,9 +304,9 @@ public class RouteTopologyService {
             ),
             new TopologyNodeDto(
                 "node-splitter-comp",
-                "COMPONENT",
+                "NODE",
                 "splitter-csv-univocity",
-                "Univocity Fast CSV Splitter",
+                "Streaming CSV Splitter Node",
                 "Loom Virtual Chunk Splitter",
                 "SPLITTER",
                 380,
@@ -284,10 +318,10 @@ public class RouteTopologyService {
             ),
             new TopologyNodeDto(
                 "node-rest-composite",
-                "CONNECTOR",
+                "NODE",
                 "conn-def-rest-json",
-                "Customer Enrichment Capsule",
-                "Composite Capsule (2 Steps: Req ➔ Res)",
+                "Customer Enrichment Node (Sub-DAG)",
+                "Sub-DAG Node (2 Steps: Req ➔ Res)",
                 "PROCESSOR",
                 680,
                 140,
@@ -309,9 +343,9 @@ public class RouteTopologyService {
             ),
             new TopologyNodeDto(
                 "node-validator-comp",
-                "COMPONENT",
+                "NODE",
                 "val-customer-kyc",
-                "Customer KYC Validator",
+                "Customer KYC Validator Node",
                 "Rule & Constraint Checker",
                 "VALIDATOR",
                 1040,
@@ -323,9 +357,9 @@ public class RouteTopologyService {
             ),
             new TopologyNodeDto(
                 "node-sink-db",
-                "CONNECTOR",
+                "NODE",
                 "conn-def-db-sink",
-                "Database JDBC Sink",
+                "Database JDBC Sink Node",
                 "Processed Records Table",
                 "SINK",
                 1380,
@@ -337,9 +371,9 @@ public class RouteTopologyService {
             ),
             new TopologyNodeDto(
                 "node-terminal-sink",
-                "CONNECTOR",
+                "NODE",
                 "conn-def-terminal-sink",
-                "Terminal Completion Sink",
+                "Terminal Completion Sink Node",
                 "Blank End Node (Seals Stream)",
                 "SINK",
                 1040,

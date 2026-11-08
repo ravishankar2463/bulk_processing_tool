@@ -106,7 +106,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
 
     const newNode: TopologyNode = {
       id: newNodeId,
-      type: isComp ? 'COMPONENT' : 'CONNECTOR',
+      type: 'NODE',
       refId: isComp ? item.instanceId : item.definitionId,
       label: item.name,
       subLabel: isComp ? item.description : ('protocol' in item ? (item as any).protocol : 'Sub-Node'),
@@ -154,7 +154,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
       const synthesizedNodes: TopologyNode[] = [
         {
           id: reqId,
-          type: 'CONNECTOR',
+          type: 'NODE',
           refId: isSoap ? 'conn-def-soap-xml' : 'conn-def-rest-json',
           label: isSoap ? 'SOAP Request Node' : 'JSON Request Node',
           subLabel: isSoap ? 'POST /ws/CustomerService' : 'POST /api/v1/enrich',
@@ -182,7 +182,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
         },
         {
           id: resId,
-          type: 'CONNECTOR',
+          type: 'NODE',
           refId: isSoap ? 'conn-def-soap-xml' : 'conn-def-rest-json',
           label: isSoap ? 'SOAP Response Node' : 'JSON Response Node',
           subLabel: isSoap ? 'XPath Extractor' : 'JSONPath Extractor',
@@ -343,7 +343,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
     const id = `sub-req-${Date.now()}`;
     const newNode: TopologyNode = {
       id,
-      type: 'CONNECTOR',
+      type: 'NODE',
       refId: 'conn-def-rest-json',
       label: 'Chained HTTP Request',
       subLabel: 'GET /api/v1/enrich/${id}',
@@ -371,7 +371,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
     const id = `sub-res-${Date.now()}`;
     const newNode: TopologyNode = {
       id,
-      type: 'CONNECTOR',
+      type: 'NODE',
       refId: 'conn-def-response-capture',
       label: 'Response & Extractor',
       subLabel: 'JSONPath / XPath Fields',
@@ -418,7 +418,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
     const id = `sub-script-${Date.now()}`;
     const newNode: TopologyNode = {
       id,
-      type: 'COMPONENT',
+      type: 'NODE',
       refId: 'comp-janino-hook',
       label: 'Custom Janino Script',
       subLabel: 'Java 21 Logic Hook',
@@ -444,7 +444,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
     const id = `sub-router-${Date.now()}`;
     const newNode: TopologyNode = {
       id,
-      type: 'COMPONENT',
+      type: 'NODE',
       refId: 'subflow-decision-router',
       label: 'Branch Router',
       subLabel: 'Condition Evaluator',

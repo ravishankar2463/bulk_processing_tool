@@ -1977,7 +1977,7 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
     nodes: [
       {
         id: 'node-csv-src',
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: 'conn-def-csv',
         label: 'CSV Ingestion Node',
         subLabel: 'Manual / S3 Source',
@@ -2001,9 +2001,9 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
       },
       {
         id: 'node-split-comp',
-        type: 'COMPONENT',
+        type: 'NODE',
         refId: 'splitter-csv-univocity',
-        label: 'Streaming CSV Splitter',
+        label: 'Streaming CSV Splitter Node',
         subLabel: 'Univocity Parser',
         category: 'SPLITTER',
         streamRole: 'MIDDLE',
@@ -2015,10 +2015,10 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
       },
       {
         id: 'node-rest-composite',
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: 'conn-def-composite-subflow',
-        label: 'Customer Enrichment Capsule',
-        subLabel: 'Composite Capsule (2 Steps: Req ➔ Res)',
+        label: 'Customer Enrichment Node (Sub-DAG)',
+        subLabel: 'Sub-DAG Node (2 Steps: Req ➔ Res)',
         category: 'PROCESSOR',
         streamRole: 'MIDDLE',
         x: 680,
@@ -2057,7 +2057,7 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
           nodes: [
             {
               id: 'sub-rest-req',
-              type: 'CONNECTOR',
+              type: 'NODE',
               refId: 'conn-def-rest-json',
               label: 'JSON Request Node',
               subLabel: 'POST /api/kyc/verify',
@@ -2079,7 +2079,7 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
             },
             {
               id: 'sub-rest-res',
-              type: 'CONNECTOR',
+              type: 'NODE',
               refId: 'conn-def-rest-json',
               label: 'JSON Response Node',
               subLabel: 'JSONPath Extractor',
@@ -2128,9 +2128,9 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
       },
       {
         id: 'node-val-comp',
-        type: 'COMPONENT',
+        type: 'NODE',
         refId: 'val-customer-kyc',
-        label: 'Customer KYC Validator',
+        label: 'Customer KYC Validator Node',
         subLabel: 'RFC 5322 Email Rule',
         category: 'VALIDATOR',
         streamRole: 'MIDDLE',
@@ -2142,9 +2142,9 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
       },
       {
         id: 'node-sink-conn',
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: 'conn-def-db-sink',
-        label: 'Database JDBC Sink',
+        label: 'Database JDBC Sink Node',
         subLabel: 'Customer Analytics DB',
         category: 'SINK',
         streamRole: 'END',
@@ -2156,9 +2156,9 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
       },
       {
         id: 'node-terminal-sink',
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: 'conn-def-terminal-sink',
-        label: 'Terminal Completion Sink',
+        label: 'Terminal Completion Sink Node',
         subLabel: 'Blank End Node (Seals Stream)',
         category: 'SINK',
         streamRole: 'END',
@@ -2225,7 +2225,7 @@ export function getMockRouteTopology(routeId: string): RouteTopology {
     nodes: [
       {
         id: 'node-csv-src',
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: 'conn-def-csv',
         label: 'CSV Ingestion Node',
         subLabel: 'Source Stream',
@@ -2246,9 +2246,9 @@ export function getMockRouteTopology(routeId: string): RouteTopology {
       },
       {
         id: 'node-split-comp',
-        type: 'COMPONENT',
+        type: 'NODE',
         refId: 'splitter-csv-univocity',
-        label: 'CSV Splitter Component',
+        label: 'Streaming CSV Splitter Node',
         subLabel: 'Record Chunking',
         category: 'SPLITTER',
         x: 360,
@@ -2259,9 +2259,9 @@ export function getMockRouteTopology(routeId: string): RouteTopology {
       },
       {
         id: 'node-sink-conn',
-        type: 'CONNECTOR',
+        type: 'NODE',
         refId: 'conn-def-db-sink',
-        label: 'Database Sink Connector',
+        label: 'Database JDBC Sink Node',
         subLabel: 'Target Store',
         category: 'SINK',
         x: 640,

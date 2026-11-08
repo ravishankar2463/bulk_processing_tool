@@ -51,6 +51,16 @@ class AdminConnectorControllerTest {
     }
 
     @Test
+    @DisplayName("Fetches node definitions catalog via /api/v1/admin/nodes/definitions")
+    void shouldFetchNodeDefinitionsViaNodesEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/nodes/definitions"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", not(empty())))
+            .andExpect(jsonPath("$[?(@.definitionId == 'conn-def-csv')].protocol", contains("CSV")))
+            .andExpect(jsonPath("$[?(@.definitionId == 'conn-def-csv')].streamRole", contains("START")));
+    }
+
+    @Test
     @DisplayName("Creates, fetches and deletes a custom connector definition")
     void shouldCreateAndManageCustomConnector() throws Exception {
         ConnectorDefinitionDto customDto = new ConnectorDefinitionDto(

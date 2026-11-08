@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/admin/connectors")
+@RequestMapping({"/api/v1/admin/nodes", "/api/v1/admin/connectors"})
 @CrossOrigin(origins = "*")
 public class AdminConnectorController {
 

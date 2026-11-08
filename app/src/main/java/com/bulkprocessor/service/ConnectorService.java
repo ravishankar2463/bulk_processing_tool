@@ -85,10 +85,10 @@ public class ConnectorService {
         return definitionRepository.findById(definitionId)
             .map(entity -> {
                 if (entity.isBuiltIn()) {
-                    throw new IllegalArgumentException("Cannot delete built-in connector definition: " + definitionId);
+                    throw new IllegalArgumentException("Cannot delete built-in node definition: " + definitionId);
                 }
                 definitionRepository.delete(entity);
-                log.info("Deleted custom connector definition: {}", definitionId);
+                log.info("Deleted custom node definition: {}", definitionId);
                 return true;
             })
             .orElse(false);
@@ -252,7 +252,7 @@ public class ConnectorService {
                 logs.add("XPath extraction evaluated successfully on SOAP Body.");
 
             } else {
-                logs.add("Executing custom connector handler...");
+                logs.add("Executing custom node handler...");
                 Map<String, Object> sampleRecord = new LinkedHashMap<>();
                 sampleRecord.put("custom_status", "EXECUTED");
                 sampleRecord.put("processed_timestamp", Instant.now().toString());
@@ -326,12 +326,14 @@ public class ConnectorService {
         if (streamRole == null || streamRole.isBlank()) {
             streamRole = "SOURCE".equalsIgnoreCase(e.getCategory()) ? "START" : ("SINK".equalsIgnoreCase(e.getCategory()) ? "END" : "MIDDLE");
         }
+        String name = e.getName() != null ? e.getName().replace(" Connector", " Node") : "";
+        String desc = e.getDescription() != null ? e.getDescription().replace("connector", "node").replace("Connector", "Node") : "";
         return new ConnectorDefinitionDto(
             e.getDefinitionId(),
-            e.getName(),
+            name,
             e.getCategory(),
             e.getProtocol(),
-            e.getDescription(),
+            desc,
             e.getIcon(),
             e.isComposite(),
             e.getPropertyManifest(),
