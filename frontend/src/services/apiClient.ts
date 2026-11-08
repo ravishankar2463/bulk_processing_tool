@@ -1180,6 +1180,479 @@ if (mockDiagnosticsStore['job-cmo-001']) {
   };
 }
 
+// Pre-seed job-ofs-101 (Order Fulfillment Stream) with 14 errors for zero-latency instant rendering
+mockDiagnosticsStore['job-ofs-101'] = {
+  jobId: 'job-ofs-101',
+  fileName: 'job-ofs-101.csv',
+  processName: 'Order Fulfillment Stream',
+  metadata: {
+    sizeBytes: 12450800,
+    encoding: 'UTF-8',
+    delimiter: ',',
+    rowCount: 24500,
+    checksum: 'a8b7c6d5e4f3210987654321fedcba09876543210fedcba9876543210fedcba9',
+    loomThread: 'virtual-worker-202-loom-08'
+  },
+  stageLatencies: [
+    {
+      stepId: 'splitter',
+      stepName: 'Streaming CSV Splitter',
+      durationMicros: 420000,
+      percentOfTotal: 15.0,
+      status: 'SUCCESS',
+      inputRecords: 24500,
+      successRecords: 24500,
+      failedRecords: 0,
+      inFlightRecords: 0,
+      boundComponentId: 'DEFAULT_SPLITTER'
+    },
+    {
+      stepId: 'validator',
+      stepName: 'Dynamic Schema Validator',
+      durationMicros: 810000,
+      percentOfTotal: 28.9,
+      status: 'WARNING',
+      inputRecords: 24500,
+      successRecords: 24486,
+      failedRecords: 14,
+      inFlightRecords: 0,
+      boundComponentId: 'val-order-schema'
+    },
+    {
+      stepId: 'processor',
+      stepName: 'Enrichment & Transformation',
+      durationMicros: 1180000,
+      percentOfTotal: 42.1,
+      status: 'SUCCESS',
+      inputRecords: 24486,
+      successRecords: 24486,
+      failedRecords: 0,
+      inFlightRecords: 0,
+      boundComponentId: 'proc-order-tax'
+    },
+    {
+      stepId: 'sink',
+      stepName: 'Audit Report Sink',
+      durationMicros: 390000,
+      percentOfTotal: 13.9,
+      status: 'SUCCESS',
+      inputRecords: 24486,
+      successRecords: 24486,
+      failedRecords: 0,
+      inFlightRecords: 0,
+      boundComponentId: 'writer-audit-csv'
+    }
+  ],
+  batchChunks: [
+    { chunkIndex: 0, recordCount: 2450, durationMicros: 280000, partitionId: 'partition-p0', status: 'DONE', successfulCount: 2450, failedCount: 0, batchId: 'job-ofs-101-batch-0' },
+    { chunkIndex: 1, recordCount: 2450, durationMicros: 295000, partitionId: 'partition-p1', status: 'DONE', successfulCount: 2446, failedCount: 4, batchId: 'job-ofs-101-batch-1' },
+    { chunkIndex: 2, recordCount: 2450, durationMicros: 275000, partitionId: 'partition-p0', status: 'DONE', successfulCount: 2450, failedCount: 0, batchId: 'job-ofs-101-batch-2' },
+    { chunkIndex: 3, recordCount: 2450, durationMicros: 310000, partitionId: 'partition-p1', status: 'DONE', successfulCount: 2444, failedCount: 6, batchId: 'job-ofs-101-batch-3' },
+    { chunkIndex: 4, recordCount: 2450, durationMicros: 285000, partitionId: 'partition-p2', status: 'DONE', successfulCount: 2446, failedCount: 4, batchId: 'job-ofs-101-batch-4' },
+    { chunkIndex: 5, recordCount: 2450, durationMicros: 290000, partitionId: 'partition-p0', status: 'DONE', successfulCount: 2450, failedCount: 0, batchId: 'job-ofs-101-batch-5' },
+    { chunkIndex: 6, recordCount: 2450, durationMicros: 278000, partitionId: 'partition-p1', status: 'DONE', successfulCount: 2450, failedCount: 0, batchId: 'job-ofs-101-batch-6' },
+    { chunkIndex: 7, recordCount: 2450, durationMicros: 282000, partitionId: 'partition-p2', status: 'DONE', successfulCount: 2450, failedCount: 0, batchId: 'job-ofs-101-batch-7' },
+    { chunkIndex: 8, recordCount: 2450, durationMicros: 291000, partitionId: 'partition-p0', status: 'DONE', successfulCount: 2450, failedCount: 0, batchId: 'job-ofs-101-batch-8' },
+    { chunkIndex: 9, recordCount: 2450, durationMicros: 289000, partitionId: 'partition-p1', status: 'DONE', successfulCount: 2450, failedCount: 0, batchId: 'job-ofs-101-batch-9' }
+  ],
+  errorRecords: [
+    {
+      recordId: 'rec-ofs-101',
+      lineNumber: 1204,
+      batchId: 'job-ofs-101-batch-1',
+      errorCode: 'INVALID_SKU_FORMAT',
+      errorMessage: 'SKU code does not match catalog regex standard pattern [A-Z]{3}-[0-9]{4}',
+      schemaTuple: { orderId: 'ORD-9011', sku: 'INVALID_SKU_12', quantity: '2', amount: '124.50' },
+      rawPayload: '{"order_id": "ORD-9011", "sku": "INVALID_SKU_12", "quantity": 2, "amount": 124.50, "currency": "USD"}'
+    },
+    {
+      recordId: 'rec-ofs-102',
+      lineNumber: 1582,
+      batchId: 'job-ofs-101-batch-1',
+      errorCode: 'NEGATIVE_QUANTITY',
+      errorMessage: 'Order item quantity must be strictly greater than 0',
+      schemaTuple: { orderId: 'ORD-9104', sku: 'WGT-4001', quantity: '-3', amount: '-45.00' },
+      rawPayload: '{"order_id": "ORD-9104", "sku": "WGT-4001", "quantity": -3, "amount": -45.00, "currency": "USD"}'
+    },
+    {
+      recordId: 'rec-ofs-103',
+      lineNumber: 2011,
+      batchId: 'job-ofs-101-batch-1',
+      errorCode: 'UNSUPPORTED_CURRENCY',
+      errorMessage: 'Currency "XYZ" is not recognized in ISO-4217 standard tables',
+      schemaTuple: { orderId: 'ORD-9255', sku: 'PRD-1020', quantity: '1', currency: 'XYZ' },
+      rawPayload: '{"order_id": "ORD-9255", "sku": "PRD-1020", "quantity": 1, "currency": "XYZ"}'
+    },
+    {
+      recordId: 'rec-ofs-104',
+      lineNumber: 2340,
+      batchId: 'job-ofs-101-batch-1',
+      errorCode: 'EXPIRED_PAYMENT_AUTH',
+      errorMessage: 'Payment authorization token has exceeded 48-hour valid TTL window',
+      schemaTuple: { orderId: 'ORD-9410', sku: 'PRD-8821', authCode: 'AUTH-EXPIRED-99' },
+      rawPayload: '{"order_id": "ORD-9410", "sku": "PRD-8821", "auth_code": "AUTH-EXPIRED-99"}'
+    },
+    {
+      recordId: 'rec-ofs-105',
+      lineNumber: 5044,
+      batchId: 'job-ofs-101-batch-3',
+      errorCode: 'INVALID_POSTAL_CODE',
+      errorMessage: 'Destination postal code is invalid for country United Kingdom',
+      schemaTuple: { orderId: 'ORD-12001', country: 'GB', postalCode: '00000' },
+      rawPayload: '{"order_id": "ORD-12001", "country": "GB", "postal_code": "00000"}'
+    },
+    {
+      recordId: 'rec-ofs-106',
+      lineNumber: 5410,
+      batchId: 'job-ofs-101-batch-3',
+      errorCode: 'DUPLICATE_ORDER_REFERENCE',
+      errorMessage: 'Order reference ORD-12290 already exists in active fulfillment stream',
+      schemaTuple: { orderId: 'ORD-12290', customerId: 'CUST-551' },
+      rawPayload: '{"order_id": "ORD-12290", "customer_id": "CUST-551"}'
+    },
+    {
+      recordId: 'rec-ofs-107',
+      lineNumber: 5890,
+      batchId: 'job-ofs-101-batch-3',
+      errorCode: 'INSUFFICIENT_INVENTORY',
+      errorMessage: 'Fulfillment warehouse location has zero unallocated stock for SKU EL-889',
+      schemaTuple: { orderId: 'ORD-12500', sku: 'EL-889', warehouse: 'WH-CENTRAL' },
+      rawPayload: '{"order_id": "ORD-12500", "sku": "EL-889", "warehouse": "WH-CENTRAL"}'
+    },
+    {
+      recordId: 'rec-ofs-108',
+      lineNumber: 6201,
+      batchId: 'job-ofs-101-batch-3',
+      errorCode: 'TAX_EXEMPTION_INVALID',
+      errorMessage: 'Tax exemption certificate identifier is invalid or expired',
+      schemaTuple: { orderId: 'ORD-12890', taxCert: 'CERT-NULL-9' },
+      rawPayload: '{"order_id": "ORD-12890", "tax_cert": "CERT-NULL-9"}'
+    },
+    {
+      recordId: 'rec-ofs-109',
+      lineNumber: 6810,
+      batchId: 'job-ofs-101-batch-3',
+      errorCode: 'CARRIER_SERVICE_UNAVAILABLE',
+      errorMessage: 'Carrier FedEx Priority Overnight unavailable for remote destination postal code',
+      schemaTuple: { orderId: 'ORD-13100', carrier: 'FEDEX_PRIORITY', destination: 'AK-99701' },
+      rawPayload: '{"order_id": "ORD-13100", "carrier": "FEDEX_PRIORITY", "destination": "AK-99701"}'
+    },
+    {
+      recordId: 'rec-ofs-110',
+      lineNumber: 7100,
+      batchId: 'job-ofs-101-batch-3',
+      errorCode: 'FRAUD_RISK_THRESHOLD_EXCEEDED',
+      errorMessage: 'Risk score 94.2 exceeds maximum processing threshold 75.0',
+      schemaTuple: { orderId: 'ORD-13450', riskScore: '94.2', action: 'BLOCK' },
+      rawPayload: '{"order_id": "ORD-13450", "risk_score": 94.2, "action": "BLOCK"}'
+    },
+    {
+      recordId: 'rec-ofs-111',
+      lineNumber: 10110,
+      batchId: 'job-ofs-101-batch-4',
+      errorCode: 'MISSING_MANDATORY_FIELD',
+      errorMessage: 'Mandatory field "shippingAddress.street" is null or empty',
+      schemaTuple: { orderId: 'ORD-16200', missingField: 'street' },
+      rawPayload: '{"order_id": "ORD-16200", "customer_id": "CUST-990"}'
+    },
+    {
+      recordId: 'rec-ofs-112',
+      lineNumber: 10550,
+      batchId: 'job-ofs-101-batch-4',
+      errorCode: 'WEIGHT_LIMIT_EXCEEDED',
+      errorMessage: 'Total parcel gross weight 54.2 kg exceeds air freight maximum of 30.0 kg',
+      schemaTuple: { orderId: 'ORD-16890', weightKg: '54.2', limitKg: '30.0' },
+      rawPayload: '{"order_id": "ORD-16890", "weight_kg": 54.2, "limit_kg": 30.0}'
+    },
+    {
+      recordId: 'rec-ofs-113',
+      lineNumber: 11200,
+      batchId: 'job-ofs-101-batch-4',
+      errorCode: 'RESTRICTED_COMMODITY',
+      errorMessage: 'Lithium battery commodity requires UN3481 hazardous declaration',
+      schemaTuple: { orderId: 'ORD-17210', hazmatCode: 'UN3481' },
+      rawPayload: '{"order_id": "ORD-17210", "hazmat_code": "UN3481"}'
+    },
+    {
+      recordId: 'rec-ofs-114',
+      lineNumber: 11980,
+      batchId: 'job-ofs-101-batch-4',
+      errorCode: 'PRICE_CALCULATION_MISMATCH',
+      errorMessage: 'Line item sum 249.00 does not match gross order total 289.00',
+      schemaTuple: { orderId: 'ORD-18000', lineSum: '249.00', orderTotal: '289.00' },
+      rawPayload: '{"order_id": "ORD-18000", "line_sum": 249.00, "order_total": 289.00}'
+    }
+  ],
+  recordsLineage: [
+    {
+      recordId: 'rec-ofs-101',
+      lineNumber: 1204,
+      batchIndex: 1,
+      batchId: 'job-ofs-101-batch-1',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'INVALID_SKU_FORMAT',
+      errorMessage: 'SKU code does not match catalog regex standard pattern [A-Z]{3}-[0-9]{4}',
+      schemaTuple: { orderId: 'ORD-9011', sku: 'INVALID_SKU_12', quantity: '2', amount: '124.50' },
+      rawPayload: '{"order_id": "ORD-9011", "sku": "INVALID_SKU_12", "quantity": 2, "amount": 124.50, "currency": "USD"}',
+      processedAt: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-102',
+      lineNumber: 1582,
+      batchIndex: 1,
+      batchId: 'job-ofs-101-batch-1',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'NEGATIVE_QUANTITY',
+      errorMessage: 'Order item quantity must be strictly greater than 0',
+      schemaTuple: { orderId: 'ORD-9104', sku: 'WGT-4001', quantity: '-3', amount: '-45.00' },
+      rawPayload: '{"order_id": "ORD-9104", "sku": "WGT-4001", "quantity": -3, "amount": -45.00, "currency": "USD"}',
+      processedAt: new Date(Date.now() - 3500000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-103',
+      lineNumber: 2011,
+      batchIndex: 1,
+      batchId: 'job-ofs-101-batch-1',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'UNSUPPORTED_CURRENCY',
+      errorMessage: 'Currency "XYZ" is not recognized in ISO-4217 standard tables',
+      schemaTuple: { orderId: 'ORD-9255', sku: 'PRD-1020', quantity: '1', currency: 'XYZ' },
+      rawPayload: '{"order_id": "ORD-9255", "sku": "PRD-1020", "quantity": 1, "currency": "XYZ"}',
+      processedAt: new Date(Date.now() - 3400000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-104',
+      lineNumber: 2340,
+      batchIndex: 1,
+      batchId: 'job-ofs-101-batch-1',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'EXPIRED_PAYMENT_AUTH',
+      errorMessage: 'Payment authorization token has exceeded 48-hour valid TTL window',
+      schemaTuple: { orderId: 'ORD-9410', sku: 'PRD-8821', authCode: 'AUTH-EXPIRED-99' },
+      rawPayload: '{"order_id": "ORD-9410", "sku": "PRD-8821", "auth_code": "AUTH-EXPIRED-99"}',
+      processedAt: new Date(Date.now() - 3300000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-105',
+      lineNumber: 5044,
+      batchIndex: 3,
+      batchId: 'job-ofs-101-batch-3',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'INVALID_POSTAL_CODE',
+      errorMessage: 'Destination postal code is invalid for country United Kingdom',
+      schemaTuple: { orderId: 'ORD-12001', country: 'GB', postalCode: '00000' },
+      rawPayload: '{"order_id": "ORD-12001", "country": "GB", "postal_code": "00000"}',
+      processedAt: new Date(Date.now() - 3200000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-106',
+      lineNumber: 5410,
+      batchIndex: 3,
+      batchId: 'job-ofs-101-batch-3',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'DUPLICATE_ORDER_REFERENCE',
+      errorMessage: 'Order reference ORD-12290 already exists in active fulfillment stream',
+      schemaTuple: { orderId: 'ORD-12290', customerId: 'CUST-551' },
+      rawPayload: '{"order_id": "ORD-12290", "customer_id": "CUST-551"}',
+      processedAt: new Date(Date.now() - 3100000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-107',
+      lineNumber: 5890,
+      batchIndex: 3,
+      batchId: 'job-ofs-101-batch-3',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'INSUFFICIENT_INVENTORY',
+      errorMessage: 'Fulfillment warehouse location has zero unallocated stock for SKU EL-889',
+      schemaTuple: { orderId: 'ORD-12500', sku: 'EL-889', warehouse: 'WH-CENTRAL' },
+      rawPayload: '{"order_id": "ORD-12500", "sku": "EL-889", "warehouse": "WH-CENTRAL"}',
+      processedAt: new Date(Date.now() - 3000000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-108',
+      lineNumber: 6201,
+      batchIndex: 3,
+      batchId: 'job-ofs-101-batch-3',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'TAX_EXEMPTION_INVALID',
+      errorMessage: 'Tax exemption certificate identifier is invalid or expired',
+      schemaTuple: { orderId: 'ORD-12890', taxCert: 'CERT-NULL-9' },
+      rawPayload: '{"order_id": "ORD-12890", "tax_cert": "CERT-NULL-9"}',
+      processedAt: new Date(Date.now() - 2900000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-109',
+      lineNumber: 6810,
+      batchIndex: 3,
+      batchId: 'job-ofs-101-batch-3',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'CARRIER_SERVICE_UNAVAILABLE',
+      errorMessage: 'Carrier FedEx Priority Overnight unavailable for remote destination postal code',
+      schemaTuple: { orderId: 'ORD-13100', carrier: 'FEDEX_PRIORITY', destination: 'AK-99701' },
+      rawPayload: '{"order_id": "ORD-13100", "carrier": "FEDEX_PRIORITY", "destination": "AK-99701"}',
+      processedAt: new Date(Date.now() - 2800000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-110',
+      lineNumber: 7100,
+      batchIndex: 3,
+      batchId: 'job-ofs-101-batch-3',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'FRAUD_RISK_THRESHOLD_EXCEEDED',
+      errorMessage: 'Risk score 94.2 exceeds maximum processing threshold 75.0',
+      schemaTuple: { orderId: 'ORD-13450', riskScore: '94.2', action: 'BLOCK' },
+      rawPayload: '{"order_id": "ORD-13450", "risk_score": 94.2, "action": "BLOCK"}',
+      processedAt: new Date(Date.now() - 2700000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-111',
+      lineNumber: 10110,
+      batchIndex: 4,
+      batchId: 'job-ofs-101-batch-4',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'MISSING_MANDATORY_FIELD',
+      errorMessage: 'Mandatory field "shippingAddress.street" is null or empty',
+      schemaTuple: { orderId: 'ORD-16200', missingField: 'street' },
+      rawPayload: '{"order_id": "ORD-16200", "customer_id": "CUST-990"}',
+      processedAt: new Date(Date.now() - 2600000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-112',
+      lineNumber: 10550,
+      batchIndex: 4,
+      batchId: 'job-ofs-101-batch-4',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'WEIGHT_LIMIT_EXCEEDED',
+      errorMessage: 'Total parcel gross weight 54.2 kg exceeds air freight maximum of 30.0 kg',
+      schemaTuple: { orderId: 'ORD-16890', weightKg: '54.2', limitKg: '30.0' },
+      rawPayload: '{"order_id": "ORD-16890", "weight_kg": 54.2, "limit_kg": 30.0}',
+      processedAt: new Date(Date.now() - 2500000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-113',
+      lineNumber: 11200,
+      batchIndex: 4,
+      batchId: 'job-ofs-101-batch-4',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'RESTRICTED_COMMODITY',
+      errorMessage: 'Lithium battery commodity requires UN3481 hazardous declaration',
+      schemaTuple: { orderId: 'ORD-17210', hazmatCode: 'UN3481' },
+      rawPayload: '{"order_id": "ORD-17210", "hazmat_code": "UN3481"}',
+      processedAt: new Date(Date.now() - 2400000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-114',
+      lineNumber: 11980,
+      batchIndex: 4,
+      batchId: 'job-ofs-101-batch-4',
+      currentStepId: 'validator',
+      currentStepName: 'Dynamic Schema Validator',
+      stepStatus: 'FAILED_AT_STEP',
+      errorCode: 'PRICE_CALCULATION_MISMATCH',
+      errorMessage: 'Line item sum 249.00 does not match gross order total 289.00',
+      schemaTuple: { orderId: 'ORD-18000', lineSum: '249.00', orderTotal: '289.00' },
+      rawPayload: '{"order_id": "ORD-18000", "line_sum": 249.00, "order_total": 289.00}',
+      processedAt: new Date(Date.now() - 2300000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-001',
+      lineNumber: 1,
+      batchIndex: 0,
+      batchId: 'job-ofs-101-batch-0',
+      currentStepId: 'sink',
+      currentStepName: 'Audit Report Sink',
+      stepStatus: 'PASSED_STEP',
+      schemaTuple: { orderId: 'ORD-1001', sku: 'PRD-001', quantity: '1', amount: '45.00' },
+      rawPayload: '{"order_id": "ORD-1001", "sku": "PRD-001", "quantity": 1, "amount": 45.00, "currency": "USD"}',
+      processedAt: new Date(Date.now() - 4000000).toISOString()
+    },
+    {
+      recordId: 'rec-ofs-002',
+      lineNumber: 2,
+      batchIndex: 0,
+      batchId: 'job-ofs-101-batch-0',
+      currentStepId: 'sink',
+      currentStepName: 'Audit Report Sink',
+      stepStatus: 'PASSED_STEP',
+      schemaTuple: { orderId: 'ORD-1002', sku: 'PRD-002', quantity: '3', amount: '89.99' },
+      rawPayload: '{"order_id": "ORD-1002", "sku": "PRD-002", "quantity": 3, "amount": 89.99, "currency": "USD"}',
+      processedAt: new Date(Date.now() - 3950000).toISOString()
+    }
+  ]
+};
+
+// Pre-seed job-fin-201 (Financial Reconciliation) with 0 errors
+mockDiagnosticsStore['job-fin-201'] = {
+  jobId: 'job-fin-201',
+  fileName: 'job-fin-201.csv',
+  processName: 'Financial Reconciliation Pipeline',
+  metadata: {
+    sizeBytes: 25400000,
+    encoding: 'UTF-8',
+    delimiter: ',',
+    rowCount: 50000,
+    checksum: 'c2e8b4a19087563412abcdef0123456789abcdef0123456789abcdef01234567',
+    loomThread: 'virtual-worker-303-loom-12'
+  },
+  stageLatencies: [
+    { stepId: 'splitter', stepName: 'Streaming CSV Splitter', durationMicros: 680000, percentOfTotal: 14.8, status: 'SUCCESS', inputRecords: 50000, successRecords: 50000, failedRecords: 0, inFlightRecords: 0, boundComponentId: 'DEFAULT_SPLITTER' },
+    { stepId: 'validator', stepName: 'Dynamic Schema Validator', durationMicros: 1420000, percentOfTotal: 30.9, status: 'SUCCESS', inputRecords: 50000, successRecords: 50000, failedRecords: 0, inFlightRecords: 0, boundComponentId: 'val-fin-ledger' },
+    { stepId: 'processor', stepName: 'Enrichment & Transformation', durationMicros: 1950000, percentOfTotal: 42.4, status: 'SUCCESS', inputRecords: 50000, successRecords: 50000, failedRecords: 0, inFlightRecords: 0, boundComponentId: 'proc-fin-reconcile' },
+    { stepId: 'sink', stepName: 'Audit Report Sink', durationMicros: 550000, percentOfTotal: 11.9, status: 'SUCCESS', inputRecords: 50000, successRecords: 50000, failedRecords: 0, inFlightRecords: 0, boundComponentId: 'writer-audit-csv' }
+  ],
+  batchChunks: Array.from({ length: 10 }, (_, i) => ({
+    chunkIndex: i,
+    recordCount: 5000,
+    durationMicros: 460000,
+    partitionId: `partition-p${i % 4}`,
+    status: 'DONE',
+    successfulCount: 5000,
+    failedCount: 0,
+    batchId: `job-fin-201-batch-${i}`
+  })),
+  errorRecords: [],
+  recordsLineage: [
+    {
+      recordId: 'rec-fin-001',
+      lineNumber: 1,
+      batchIndex: 0,
+      batchId: 'job-fin-201-batch-0',
+      currentStepId: 'sink',
+      currentStepName: 'Audit Report Sink',
+      stepStatus: 'PASSED_STEP',
+      schemaTuple: { txnId: 'TXN-90001', ledgerAccount: '1010-CASH', amount: '15000.00', status: 'MATCHED' },
+      rawPayload: '{"txn_id": "TXN-90001", "account": "1010-CASH", "amount": 15000.00, "status": "MATCHED"}',
+      processedAt: new Date(Date.now() - 10000000).toISOString()
+    }
+  ]
+};
+
 /**
  * Synchronous immediate retrieval of job diagnostics from memory cache.
  * Guarantees zero latency on user clicks.
