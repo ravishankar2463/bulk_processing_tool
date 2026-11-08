@@ -145,6 +145,7 @@ Write-Host "Bringing down Docker containers (PostgreSQL, Redis, Kafka)..." -Fore
 try {
     Push-Location $WorkspaceRoot
     & docker compose down 2>$null | Out-Null
+    & docker compose -f observability/docker-compose.observability.yml down 2>$null | Out-Null
     Pop-Location
 }
 catch {}

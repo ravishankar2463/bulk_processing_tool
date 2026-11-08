@@ -1,0 +1,53 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Tempo Distributed Trace Search",
+      "type": "traces",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "options": {
+        "search": {
+          "serviceName": "bulk-processing-tool"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Service End-to-End Latency by Operation",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum by (uri) (rate(http_server_requests_seconds_sum[1m])) / sum by (uri) (rate(http_server_requests_seconds_count[1m]))", "legendFormat": "{{uri}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 3,
+      "title": "Correlated Trace Logs (Loki)",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        { "expr": "{app=\"bulk-processing-tool\"} | json | traceId != \"\"", "refId": "A" }
+      ],
+      "options": {
+        "showLabels": false,
+        "wrapLogMessage": true
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["bulk-processor", "tracing", "tempo", "opentelemetry"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "05 - Distributed Tracing & Span Analysis",
+  "uid": "bp-distributed-tracing",
+  "version": 1
+}

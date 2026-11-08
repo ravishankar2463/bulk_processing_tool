@@ -1,0 +1,84 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Host CPU Utilization %",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100) or (system_cpu_usage * 100)", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 }] }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Host Memory Utilization %",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 or ((jvm_memory_used_bytes{area=\"heap\"} / jvm_memory_max_bytes{area=\"heap\"}) * 100)", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 90 }] }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "CPU Activity Breakdown",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "system_cpu_usage * 100", "legendFormat": "System CPU %", "refId": "A" },
+        { "expr": "process_cpu_usage * 100", "legendFormat": "Process CPU %", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 4,
+      "title": "Network Traffic Rate (Rx / Tx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "rate(node_network_receive_bytes_total[1m]) or rate(http_server_requests_seconds_sum[1m])", "legendFormat": "Inbound Traffic", "refId": "A" },
+        { "expr": "rate(node_network_transmit_bytes_total[1m]) or rate(http_server_requests_seconds_sum[1m])", "legendFormat": "Outbound Traffic", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "Bps" } }
+    },
+    {
+      "id": 5,
+      "title": "Disk I/O Throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "rate(node_disk_read_bytes_total[1m])", "legendFormat": "Disk Read Bytes/sec", "refId": "A" },
+        { "expr": "rate(node_disk_written_bytes_total[1m])", "legendFormat": "Disk Written Bytes/sec", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "Bps" } }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["bulk-processor", "infrastructure", "node-exporter", "system"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "06 - Infrastructure & Container Monitoring",
+  "uid": "bp-infra-monitoring",
+  "version": 1
+}

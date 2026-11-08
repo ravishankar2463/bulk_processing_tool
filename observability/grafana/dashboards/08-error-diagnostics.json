@@ -1,0 +1,53 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Exception Occurrences by Class & HTTP Status",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum by (exception, status) (rate(bulk_errors_total[1m]))", "legendFormat": "{{status}} - {{exception}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "id": 2,
+      "title": "Failed API Endpoints Breakdown",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum by (uri, status) (rate(http_server_requests_seconds_count{status=~\"4..|5..\"}[1m]))", "legendFormat": "{{status}} {{uri}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "id": 3,
+      "title": "Centralized Error & Exception Log Stream (Loki)",
+      "type": "logs",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        { "expr": "{app=\"bulk-processing-tool\"} | json | level =~ \"(?i)WARN|ERROR\" or stack_trace != \"\"", "refId": "A" }
+      ],
+      "options": {
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["bulk-processor", "errors", "diagnostics", "loki"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "08 - Error Diagnostics & Incident Investigation",
+  "uid": "bp-error-diagnostics",
+  "version": 1
+}

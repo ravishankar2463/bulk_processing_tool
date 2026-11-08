@@ -1,0 +1,63 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Batch Record Throughput (Records/sec) by Process Route",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum by (process_id) (rate(bulk_job_records_processed_total[1m]))", "legendFormat": "{{process_id}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "id": 2,
+      "title": "Pipeline Record Errors by Step",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum by (step, process_id) (rate(bulk_job_records_failed_total[1m]))", "legendFormat": "{{process_id}} - {{step}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "id": 3,
+      "title": "Batch Chunk Duration Distribution (P50, P95, P99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(bulk_batch_duration_seconds_bucket[1m])) by (le))", "legendFormat": "Batch Duration P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(bulk_batch_duration_seconds_bucket[1m])) by (le))", "legendFormat": "Batch Duration P95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(bulk_batch_duration_seconds_bucket[1m])) by (le))", "legendFormat": "Batch Duration P99", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 4,
+      "title": "Full Bulk Job Duration Distribution (P50, P95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(bulk_job_duration_seconds_bucket[1m])) by (le))", "legendFormat": "Job Duration P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(bulk_job_duration_seconds_bucket[1m])) by (le))", "legendFormat": "Job Duration P95", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["bulk-processor", "business", "batch", "pipeline"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "07 - Bulk Processing Business Metrics & Pipeline Throughput",
+  "uid": "bp-business-metrics",
+  "version": 1
+}

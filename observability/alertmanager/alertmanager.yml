@@ -1,0 +1,32 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'service', 'severity']
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 4h
+  receiver: 'default-webhook'
+  routes:
+    - match:
+        severity: CRITICAL
+      receiver: 'critical-alerts'
+      repeat_interval: 1h
+
+receivers:
+  - name: 'default-webhook'
+    webhook_configs:
+      - url: 'http://host.docker.internal:8080/api/v1/admin/alerts/webhook'
+        send_resolved: true
+
+  - name: 'critical-alerts'
+    webhook_configs:
+      - url: 'http://host.docker.internal:8080/api/v1/admin/alerts/critical-webhook'
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      alertname: 'ApplicationDown'
+    target_match:
+      severity: 'HIGH'
+    equal: ['service']

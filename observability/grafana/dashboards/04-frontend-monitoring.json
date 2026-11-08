@@ -1,0 +1,52 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Frontend Exception Rate (Client-Side)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum(rate(bulk_errors_total{status=~\"4..|5..\"}[1m]))", "legendFormat": "Client & API Failures", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Client-Reported API Latency Distribution",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\"}[1m])) by (le))", "legendFormat": "API Client P95 Latency", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 3,
+      "title": "Recent Frontend Telemetry & Error Logs (Loki)",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 7 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        { "expr": "{app=\"bulk-processing-tool\"} |= \"ERROR\" or \"API_FAILURE\"", "refId": "A" }
+      ],
+      "options": {
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["bulk-processor", "frontend", "web-vitals"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "04 - Frontend & Web Vitals Monitoring",
+  "uid": "bp-frontend-monitoring",
+  "version": 1
+}

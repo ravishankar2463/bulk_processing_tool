@@ -1,0 +1,76 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "JVM Heap Memory Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "jvm_memory_used_bytes{area=\"heap\"}", "legendFormat": "Used Heap", "refId": "A" },
+        { "expr": "jvm_memory_committed_bytes{area=\"heap\"}", "legendFormat": "Committed Heap", "refId": "B" },
+        { "expr": "jvm_memory_max_bytes{area=\"heap\"}", "legendFormat": "Max Heap", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "id": 2,
+      "title": "JVM Non-Heap Memory (Metaspace, Code Cache)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "jvm_memory_used_bytes{area=\"nonheap\"}", "legendFormat": "Used Non-Heap", "refId": "A" },
+        { "expr": "jvm_memory_committed_bytes{area=\"nonheap\"}", "legendFormat": "Committed Non-Heap", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "id": 3,
+      "title": "CPU Utilization (Process vs System)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "process_cpu_usage * 100", "legendFormat": "JVM Process CPU %", "refId": "A" },
+        { "expr": "system_cpu_usage * 100", "legendFormat": "Host System CPU %", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 } }
+    },
+    {
+      "id": 4,
+      "title": "Garbage Collection Pause Rate & Duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "rate(jvm_gc_pause_seconds_sum[1m])", "legendFormat": "GC Pause Overhead (s/sec)", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 5,
+      "title": "Thread States & Project Loom Virtual Threads",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "jvm_threads_live_threads", "legendFormat": "Live Platform Threads", "refId": "A" },
+        { "expr": "jvm_threads_peak_threads", "legendFormat": "Peak Platform Threads", "refId": "B" },
+        { "expr": "bulk_virtual_threads_active", "legendFormat": "Active Loom Virtual Threads", "refId": "C" }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["bulk-processor", "jvm", "performance"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "02 - Java Backend & Project Loom Diagnostics",
+  "uid": "bp-jvm-diagnostics",
+  "version": 1
+}

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="bulk-processing-tool"/>
+    <springProperty scope="context" name="appEnv" source="APP_ENV" defaultValue="production"/>
+
+    <!-- 1. Colorized Standard Console Appender with Trace & MDC Correlation for Local Dev -->
+    <appender name="CONSOLE_PRETTY" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) %magenta([${appName},%X{traceId:-},%X{spanId:-}]) %yellow([%thread]) %cyan(%logger{36}) : %msg %n%wEx</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 2. Structured JSON Appender for Loki & Production Log Aggregation -->
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <includeContext>true</includeContext>
+            <includeCallerData>false</includeCallerData>
+            <customFields>{"app":"${appName}","environment":"${appEnv}"}</customFields>
+            <fieldNames>
+                <timestamp>@timestamp</timestamp>
+                <message>message</message>
+                <logger>logger</logger>
+                <level>level</level>
+                <thread>thread</thread>
+                <stackTrace>stack_trace</stackTrace>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <!-- Profile based activation: dev uses CONSOLE_PRETTY, prod/json uses CONSOLE_JSON -->
+    <springProfile name="dev,local,test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_PRETTY" />
+        </root>
+    </springProfile>
+
+    <springProfile name="!dev &amp; !local &amp; !test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_JSON" />
+        </root>
+    </springProfile>
+
+    <!-- Specific loggers tuning -->
+    <logger name="com.bulkprocessor" level="DEBUG" />
+    <logger name="org.springframework.web" level="INFO" />
+    <logger name="org.apache.camel" level="INFO" />
+    <logger name="org.hibernate.SQL" level="WARN" />
+
+</configuration>

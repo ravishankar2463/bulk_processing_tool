@@ -13,3 +13,27 @@ spring:
   flyway:
     enabled: false
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  health:
+    redis:
+      enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+

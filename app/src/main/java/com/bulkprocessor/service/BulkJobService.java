@@ -15,8 +15,10 @@ import com.bulkprocessor.storage.repository.BulkRecordErrorRepository;
 import com.bulkprocessor.storage.repository.RouteConfigRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bulkprocessor.observability.BulkMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,6 +43,7 @@ public class BulkJobService {
     private final RouteConfigRepository routeConfigRepository;
     private final JobCoordinatorService jobCoordinatorService;
     private final ObjectMapper objectMapper;
+    private final BulkMetricsService metricsService;
 
     public BulkJobService(
             BulkJobRepository bulkJobRepository,
@@ -49,12 +52,26 @@ public class BulkJobService {
             RouteConfigRepository routeConfigRepository,
             JobCoordinatorService jobCoordinatorService,
             ObjectMapper objectMapper) {
+        this(bulkJobRepository, bulkRecordErrorRepository, bulkJobBatchRepository,
+             routeConfigRepository, jobCoordinatorService, objectMapper, null);
+    }
+
+    @Autowired
+    public BulkJobService(
+            BulkJobRepository bulkJobRepository,
+            BulkRecordErrorRepository bulkRecordErrorRepository,
+            BulkJobBatchRepository bulkJobBatchRepository,
+            RouteConfigRepository routeConfigRepository,
+            JobCoordinatorService jobCoordinatorService,
+            ObjectMapper objectMapper,
+            @Autowired(required = false) BulkMetricsService metricsService) {
         this.bulkJobRepository = bulkJobRepository;
         this.bulkRecordErrorRepository = bulkRecordErrorRepository;
         this.bulkJobBatchRepository = bulkJobBatchRepository;
         this.routeConfigRepository = routeConfigRepository;
         this.jobCoordinatorService = jobCoordinatorService;
         this.objectMapper = objectMapper;
+        this.metricsService = metricsService;
     }
 
     /**
@@ -117,6 +134,9 @@ public class BulkJobService {
         String jobId = "job-" + UUID.randomUUID();
         BulkJobEntity job = buildJobFromFile(jobId, file, canonicalProcessId);
         BulkJobEntity saved = bulkJobRepository.save(job);
+        if (metricsService != null) {
+            metricsService.incrementActiveJobs();
+        }
 
         try {
             byte[] bytes = file.getBytes();
@@ -141,6 +161,9 @@ public class BulkJobService {
             BulkJobEntity job = buildJobFromFile(jobId, file, canonicalProcessId);
             job.setStage("INGESTING");
             BulkJobEntity saved = bulkJobRepository.save(job);
+        if (metricsService != null) {
+            metricsService.incrementActiveJobs();
+        }
             savedJobs.add(saved);
 
             try {
@@ -203,6 +226,9 @@ public class BulkJobService {
                 job.setStatus("FAILED");
                 job.setStage("DONE");
                 job.setEndTime(Instant.now());
+                if (metricsService != null) {
+                    metricsService.decrementActiveJobs();
+                }
                 return bulkJobRepository.save(job);
             });
     }

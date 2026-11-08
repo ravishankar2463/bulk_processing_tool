@@ -1,0 +1,67 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "HikariCP Connection Pool Saturation %",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "(hikaricp_connections_active / hikaricp_connections_max) * 100", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 }] }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Connection Pool Status Breakdown",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "hikaricp_connections_active", "legendFormat": "Active Connections", "refId": "A" },
+        { "expr": "hikaricp_connections_idle", "legendFormat": "Idle Connections", "refId": "B" },
+        { "expr": "hikaricp_connections_pending", "legendFormat": "Pending Threads Awaiting Connection", "refId": "C" },
+        { "expr": "hikaricp_connections_max", "legendFormat": "Max Pool Capacity", "refId": "D" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Connection Acquisition Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "hikaricp_connections_acquire_seconds_max", "legendFormat": "Max Acquire Time", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 4,
+      "title": "Spring Data JPA Repository Operations Throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum by (repository, method) (rate(spring_data_repository_invocations_seconds_count[1m]))", "legendFormat": "{{repository}}.{{method}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["bulk-processor", "database", "hikaricp", "postgres"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "03 - Database & HikariCP Pool Monitoring",
+  "uid": "bp-database-hikaricp",
+  "version": 1
+}

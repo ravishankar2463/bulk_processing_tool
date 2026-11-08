@@ -40,6 +40,8 @@ import {
   updateMockJobStore
 } from './mockFixtures';
 
+import { getTraceHeaders, recordApiTelemetry } from '../utils/telemetry';
+
 // Re-export mock fixtures and helpers for test compatibility and zero breaking changes
 export {
   MOCK_COMPONENTS,
@@ -59,12 +61,34 @@ interface CustomImportMeta {
 
 const API_BASE = ((import.meta as unknown as CustomImportMeta).env?.VITE_API_URL) || '';
 
+const nativeFetch = typeof globalThis !== 'undefined' && globalThis.fetch ? globalThis.fetch.bind(globalThis) : fetch;
+
+/**
+ * Enterprise Traced HTTP Fetch Wrapper.
+ * Injects W3C Trace Context (traceparent), correlation headers, and measures API latency.
+ */
+async function tracedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const headers = getTraceHeaders(init?.headers);
+  const endpoint = typeof input === 'string' ? input : input.toString();
+  try {
+    const res = await nativeFetch(input, { ...init, headers });
+    const duration = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - start;
+    recordApiTelemetry(endpoint, res.status, duration, headers['X-Trace-Id']);
+    return res;
+  } catch (err) {
+    const duration = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - start;
+    recordApiTelemetry(endpoint, 0, duration, headers['X-Trace-Id']);
+    throw err;
+  }
+}
+
 /**
  * Fetch catalog routes with transparent mock fallback.
  */
 export async function fetchCatalogRoutes(): Promise<ProcessRoute[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/routes/catalog`, { credentials: 'omit' });
+    const res = await tracedFetch(`${API_BASE}/api/v1/routes/catalog`, { credentials: 'omit' });
     if (res.ok) {
       const data: ProcessRoute[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -82,7 +106,7 @@ export async function fetchCatalogRoutes(): Promise<ProcessRoute[]> {
  */
 export async function fetchComponents(): Promise<ComponentInstance[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/admin/components`, { credentials: 'omit' });
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/components`, { credentials: 'omit' });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -100,7 +124,7 @@ export async function fetchComponents(): Promise<ComponentInstance[]> {
  */
 export async function saveComponent(component: ComponentInstance): Promise<ComponentInstance> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/admin/components`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/components`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(component),
@@ -121,7 +145,7 @@ export async function saveComponent(component: ComponentInstance): Promise<Compo
  */
 export async function startRoute(routeId: string): Promise<ProcessRoute> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/routes/${routeId}/start`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/routes/${routeId}/start`, {
       method: 'POST',
       credentials: 'omit'
     });
@@ -140,7 +164,7 @@ export async function startRoute(routeId: string): Promise<ProcessRoute> {
  */
 export async function pauseRoute(routeId: string): Promise<ProcessRoute> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/routes/${routeId}/pause`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/routes/${routeId}/pause`, {
       method: 'POST',
       credentials: 'omit'
     });
@@ -236,7 +260,7 @@ export async function fetchProcessJobs(processId?: string): Promise<FileExecutio
     const url = processId
       ? `${API_BASE}/api/v1/processes/${processId}/jobs`
       : `${API_BASE}/api/v1/user/jobs`;
-    const res = await fetch(url, { credentials: 'omit' });
+    const res = await tracedFetch(url, { credentials: 'omit' });
     if (res.ok) {
       const data: any[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -277,7 +301,7 @@ export async function batchUploadFiles(
     formData.append('processId', processId);
     files.forEach(f => formData.append('files', f));
 
-    const res = await fetch(`${API_BASE}/api/v1/user/jobs/batch-upload`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/batch-upload`, {
       method: 'POST',
       body: formData,
       credentials: 'omit'
@@ -316,7 +340,7 @@ export async function batchUploadFiles(
  */
 export async function pauseJob(jobId: string): Promise<FileExecutionJob> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/user/jobs/${jobId}/pause`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/${jobId}/pause`, {
       method: 'POST',
       credentials: 'omit'
     });
@@ -337,7 +361,7 @@ export async function pauseJob(jobId: string): Promise<FileExecutionJob> {
  */
 export async function resumeJob(jobId: string): Promise<FileExecutionJob> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/user/jobs/${jobId}/resume`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/${jobId}/resume`, {
       method: 'POST',
       credentials: 'omit'
     });
@@ -358,7 +382,7 @@ export async function resumeJob(jobId: string): Promise<FileExecutionJob> {
  */
 export async function retryJob(jobId: string): Promise<FileExecutionJob> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/user/jobs/${jobId}/retry`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/${jobId}/retry`, {
       method: 'POST',
       credentials: 'omit'
     });
@@ -379,7 +403,7 @@ export async function retryJob(jobId: string): Promise<FileExecutionJob> {
  */
 export async function cancelJob(jobId: string): Promise<FileExecutionJob> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/user/jobs/${jobId}/cancel`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/${jobId}/cancel`, {
       method: 'POST',
       credentials: 'omit'
     });
@@ -402,7 +426,7 @@ export async function fetchJobDiagnostics(jobId: string): Promise<FileDiagnostic
   try {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timeoutId = controller ? setTimeout(() => controller.abort(), 400) : null;
-    const res = await fetch(`${API_BASE}/api/v1/user/jobs/${jobId}/diagnostics`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/${jobId}/diagnostics`, {
       credentials: 'omit',
       signal: controller?.signal
     });
@@ -618,7 +642,7 @@ export async function fetchJobDiagnostics(jobId: string): Promise<FileDiagnostic
 export async function fetchDlqErrors(jobId?: string): Promise<RecordErrorItem[]> {
   try {
     const url = jobId ? `${API_BASE}/api/v1/admin/dlq?jobId=${jobId}` : `${API_BASE}/api/v1/admin/dlq`;
-    const res = await fetch(url, { credentials: 'omit' });
+    const res = await tracedFetch(url, { credentials: 'omit' });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -655,7 +679,7 @@ export async function fetchDlqErrors(jobId?: string): Promise<RecordErrorItem[]>
 export async function resubmitDlqRecord(errorId: string | number): Promise<boolean> {
   const numId = typeof errorId === 'number' ? errorId : parseInt(String(errorId).replace('err-', ''), 10);
   try {
-    const res = await fetch(`${API_BASE}/api/v1/admin/dlq/${numId}/resubmit`, {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/dlq/${numId}/resubmit`, {
       method: 'POST',
       credentials: 'omit'
     });

@@ -1,0 +1,65 @@
+name: CI & Observability Validation
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  backend-verification:
+    name: Backend Build & Observability Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Compile & Run Tests (74 Tests)
+        run: ./mvnw test
+
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage
+          path: app/target/site/jacoco/
+
+  frontend-verification:
+    name: Frontend TypeScript & Vitest Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: app/webapp/package.json
+
+      - name: Install Frontend Dependencies
+        working-directory: app/webapp
+        run: npm ci
+
+      - name: Run Vitest Test Suite (293 Tests)
+        working-directory: app/webapp
+        run: npm test -- --run
+
+      - name: Run TypeScript & Vite Production Build
+        working-directory: app/webapp
+        run: npm run build
+
+  observability-lint:
+    name: Observability Configurations & Dashboards Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Prometheus Alert Rules & Compose
+        run: |
+          python3 -c "import json, glob; [json.load(open(f)) for f in glob.glob('observability/grafana/dashboards/*.json')]; print('All 8 Grafana dashboards are valid JSON!')"

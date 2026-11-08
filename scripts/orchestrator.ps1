@@ -168,6 +168,9 @@ try {
     Write-Host "  > User Portal:            http://localhost:5173" -ForegroundColor Cyan
     Write-Host "  > Admin Studio:           http://localhost:5173 (Select 'Admin Studio' Tab)" -ForegroundColor Cyan
     Write-Host "  > Backend REST & SSE API: http://localhost:8080/api/v1" -ForegroundColor Cyan
+    Write-Host "  > Actuator Health & Prom: http://localhost:8080/actuator/prometheus" -ForegroundColor Cyan
+    Write-Host "  > Grafana Dashboards:     http://localhost:3000 (User: admin / Pass: admin)" -ForegroundColor Cyan
+    Write-Host "  > Prometheus Engine:      http://localhost:9090" -ForegroundColor Cyan
     Write-Host "  > PostgreSQL:             localhost:5432 (Database: bulk_processing_db)" -ForegroundColor DarkGray
     Write-Host "  > Redis Cache:            localhost:6379" -ForegroundColor DarkGray
     Write-Host "  > Kafka Broker:           localhost:9092" -ForegroundColor DarkGray

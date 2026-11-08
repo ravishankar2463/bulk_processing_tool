@@ -1,0 +1,82 @@
+groups:
+  - name: bulk_processing_engine_alerts
+    rules:
+      # 1. Critical: Application Availability
+      - alert: ApplicationDown
+        expr: up{job="bulk-processing-engine"} == 0
+        for: 15s
+        labels:
+          severity: CRITICAL
+          service: bulk-processing-tool
+        annotations:
+          summary: "Bulk Processing Engine instance is DOWN"
+          description: "Spring Boot backend instance has not reported metrics for > 15s. SRE action required immediately."
+          runbook_url: "docs/runbooks/RUNBOOK_APPLICATION_DOWN.md"
+
+      # 2. High: HTTP 5xx Server Error Spike
+      - alert: HighHttpErrorRate5xx
+        expr: (sum(rate(http_server_requests_seconds_count{status=~"5.."}[1m])) / sum(rate(http_server_requests_seconds_count[1m]))) * 100 > 5
+        for: 1m
+        labels:
+          severity: HIGH
+          service: bulk-processing-tool
+        annotations:
+          summary: "HTTP 5xx Server Error rate is above 5%"
+          description: "Over 5% of API requests are failing with 5xx server errors over the last minute."
+          runbook_url: "docs/runbooks/RUNBOOK_HIGH_5XX_ERRORS.md"
+
+      # 3. Medium: High P95 API Latency
+      - alert: HighApiLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[1m])) by (le)) > 1.0
+        for: 1m
+        labels:
+          severity: MEDIUM
+          service: bulk-processing-tool
+        annotations:
+          summary: "API P95 Latency exceeds 1.0s"
+          description: "P95 request duration is above 1000ms over the last 1 minute."
+
+      # 4. Critical: HikariCP Connection Pool Saturation
+      - alert: DatabaseConnectionPoolExhaustion
+        expr: (hikaricp_connections_active / hikaricp_connections_max) * 100 > 90
+        for: 45s
+        labels:
+          severity: CRITICAL
+          service: bulk-processing-tool
+        annotations:
+          summary: "HikariCP database connection pool is > 90% saturated"
+          description: "Active database connections have exceeded 90% capacity for 45s, risking request timeouts."
+          runbook_url: "docs/runbooks/RUNBOOK_DB_CONNECTION_EXHAUSTION.md"
+
+      # 5. High: JVM Heap Memory Pressure
+      - alert: JvmMemoryPressureHigh
+        expr: (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) * 100 > 85
+        for: 2m
+        labels:
+          severity: HIGH
+          service: bulk-processing-tool
+        annotations:
+          summary: "JVM Heap Memory utilization exceeds 85%"
+          description: "JVM Heap usage is sustained above 85% for 2 minutes. Risk of OutOfMemoryError."
+
+      # 6. Medium: Excessive GC Pause Duration
+      - alert: ExcessiveGarbageCollection
+        expr: rate(jvm_gc_pause_seconds_sum[1m]) > 0.3
+        for: 1m
+        labels:
+          severity: MEDIUM
+          service: bulk-processing-tool
+        annotations:
+          summary: "JVM Garbage Collection pause overhead > 30%"
+          description: "GC pauses are consuming over 300ms per second over the last minute."
+
+      # 7. High: Bulk Job Record Failure Spike
+      - alert: BulkJobFailureSpike
+        expr: (sum(rate(bulk_job_records_failed_total[2m])) / (sum(rate(bulk_job_records_processed_total[2m])) + sum(rate(bulk_job_records_failed_total[2m])))) * 100 > 10
+        for: 1m
+        labels:
+          severity: HIGH
+          service: bulk-processing-tool
+        annotations:
+          summary: "Pipeline record failure rate exceeds 10%"
+          description: "Over 10% of batch records are failing in validator/processing steps over the last 2 minutes."
