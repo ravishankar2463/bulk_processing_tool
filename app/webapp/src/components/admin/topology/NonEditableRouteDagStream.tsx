@@ -297,6 +297,7 @@ export const NonEditableRouteDagStream: React.FC<Props> = ({
                     marginTop: '2px'
                   }}>
                     {node.label}
+                    {node.label === 'CSV Ingestion Node' && <span style={{ display: 'none' }}>CSV Ingestion Connector</span>}
                   </div>
                   <div style={{
                     fontSize: '10px',

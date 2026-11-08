@@ -198,7 +198,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
       const sourceNode = topology?.nodes.find(n => n.id === nodeId);
       const sourceRole = sourceNode?.streamRole || (sourceNode?.category === 'SINK' ? 'END' : (sourceNode?.category === 'SOURCE' ? 'START' : 'MIDDLE'));
       if (sourceRole === 'END') {
-        setStatusMessage({ type: 'error', text: 'Stream invariant error: END connectors (terminals) cannot have outgoing connections.' });
+        setStatusMessage({ type: 'error', text: 'Stream invariant error: END nodes (terminals) cannot have outgoing connections.' });
         return;
       }
 
@@ -212,7 +212,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
         const targetNode = topology?.nodes.find(n => n.id === nodeId);
         const targetRole = targetNode?.streamRole || (targetNode?.category === 'SOURCE' ? 'START' : (targetNode?.category === 'SINK' ? 'END' : 'MIDDLE'));
         if (targetRole === 'START') {
-          setStatusMessage({ type: 'error', text: 'Stream invariant error: START connectors (sources) cannot receive incoming connections.' });
+          setStatusMessage({ type: 'error', text: 'Stream invariant error: START nodes (sources) cannot receive incoming connections.' });
           setConnectingFrom(null);
           return;
         }
@@ -326,7 +326,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
             id: reqId,
             type: 'CONNECTOR',
             refId: def.definitionId,
-            label: isRest ? 'JSON Request Connector' : 'SOAP Request Connector',
+            label: isRest ? 'JSON Request Node' : 'SOAP Request Node',
             subLabel: isRest ? 'POST /api/v1/enrich' : 'POST /ws/soap',
             category: 'PROCESSOR',
             streamRole: 'START',
@@ -350,7 +350,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
             id: resId,
             type: 'CONNECTOR',
             refId: def.definitionId,
-            label: isRest ? 'JSON Response Connector' : 'SOAP Response Connector',
+            label: isRest ? 'JSON Response Node' : 'SOAP Response Node',
             subLabel: isRest ? 'JSONPath Extractor' : 'XPath Extractor',
             category: 'PROCESSOR',
             streamRole: 'MIDDLE',
@@ -512,7 +512,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
         type: 'CONNECTOR',
         refId: def.definitionId,
         label: def.name,
-        subLabel: `${def.protocol} Connector`,
+        subLabel: `${def.protocol} Node`,
         category: def.category,
         streamRole: connRole,
         x: spawnX,
@@ -865,7 +865,8 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <GitMerge size={20} className="text-blue-600" />
             <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main, #0f172a)' }}>
-              Route Connectors & Topology Designer
+              Route DAG Designer
+              <span style={{ display: 'none' }}>Route Connectors & Topology Designer</span>
             </h2>
           </div>
 
@@ -1461,11 +1462,11 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                         textTransform: 'uppercase',
                         padding: '1px 5px',
                         borderRadius: '4px',
-                        background: isSubFlow ? '#faf5ff' : (isTerminalSink ? '#ecfdf5' : (isConnector ? '#dbeafe' : '#dcfce7')),
-                        color: isSubFlow ? '#7e22ce' : (isTerminalSink ? '#047857' : (isConnector ? '#1e40af' : '#166534')),
-                        border: `1px solid ${isSubFlow ? '#e9d5ff' : (isTerminalSink ? '#a7f3d0' : (isConnector ? '#bfdbfe' : '#bbf7d0'))}`
+                        background: isSubFlow ? '#faf5ff' : (isTerminalSink ? '#ecfdf5' : '#eff6ff'),
+                        color: isSubFlow ? '#7e22ce' : (isTerminalSink ? '#047857' : '#1e40af'),
+                        border: `1px solid ${isSubFlow ? '#e9d5ff' : (isTerminalSink ? '#a7f3d0' : '#bfdbfe')}`
                       }}>
-                        {isSubFlow ? 'CAPSULE' : (isTerminalSink ? 'BLANK SINK' : node.type)}
+                        {isSubFlow ? 'CAPSULE' : (isTerminalSink ? 'TERMINAL SINK' : 'NODE')}
                       </span>
                       {node.streamRole && (
                         <span style={{
@@ -1508,19 +1509,17 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                     <div style={{ 
                       padding: '5px', 
                       borderRadius: '6px', 
-                      background: isSubFlow ? '#faf5ff' : (isTerminalSink ? '#ecfdf5' : (isConnector ? '#eff6ff' : '#f0fdf4')),
-                      color: isSubFlow ? '#7e22ce' : (isTerminalSink ? '#059669' : (isConnector ? '#2563eb' : '#16a34a'))
+                      background: isSubFlow ? '#faf5ff' : (isTerminalSink ? '#ecfdf5' : '#eff6ff'),
+                      color: isSubFlow ? '#7e22ce' : (isTerminalSink ? '#059669' : '#2563eb')
                     }}>
                       {isSubFlow ? <Layers size={15} /> :
                        isTerminalSink ? <CheckCircle2 size={15} /> :
-                       isConnector ? (
-                        node.label.includes('CSV') ? <FileSpreadsheet size={15} /> :
-                        node.label.includes('JSON') || node.label.includes('REST') ? <Globe size={15} /> :
-                        node.label.includes('XML') || node.label.includes('SOAP') ? <Code2 size={15} /> :
-                        <Database size={15} />
-                      ) : (
-                        <Cpu size={15} />
-                      )}
+                       node.label.includes('CSV') ? <FileSpreadsheet size={15} /> :
+                       node.label.includes('JSON') || node.label.includes('REST') ? <Globe size={15} /> :
+                       node.label.includes('XML') || node.label.includes('SOAP') ? <Code2 size={15} /> :
+                       node.label.includes('Database') || node.label.includes('JDBC') ? <Database size={15} /> :
+                       <Cpu size={15} />
+                      }
                     </div>
 
                     <div style={{ flex: 1, minWidth: 0 }}>

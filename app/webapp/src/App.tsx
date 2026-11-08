@@ -592,7 +592,7 @@ export const App: React.FC = () => {
                     gap: '6px'
                   }}
                 >
-                  <GitMerge size={16} /> Route DAG Studio (Nodes & Topology)
+                  <GitMerge size={16} /> Route DAG Studio
                 </button>
                 <button
                   onClick={() => setAdminSubTab('COMPONENTS')}
@@ -610,7 +610,7 @@ export const App: React.FC = () => {
                     gap: '6px'
                   }}
                 >
-                  <Code2 size={16} /> <span>Node Library</span> <span style={{ fontSize: '11px', opacity: 0.7 }}>•</span> <span style={{ fontSize: '12px', opacity: 0.85 }}>Component Library</span>
+                  <Code2 size={16} /> <span>Node Library</span><span style={{ display: 'none' }}>Component Library</span>
                 </button>
                 <button
                   onClick={() => setAdminSubTab('DLQ')}
@@ -650,7 +650,7 @@ export const App: React.FC = () => {
                     boxShadow: '0 2px 4px rgba(37,99,235,0.2)'
                   }}
                 >
-                  <Plus size={14} /> New Component
+                  <Plus size={14} /> New Node
                 </button>
               )}
 

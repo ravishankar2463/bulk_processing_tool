@@ -1799,7 +1799,7 @@ export function updateMockJobStore(jobId: string, mutator: (job: FileExecutionJo
 export const MOCK_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
   {
     definitionId: 'conn-def-csv',
-    name: 'CSV Ingestion Connector',
+    name: 'CSV Ingestion Node',
     category: 'SOURCE',
     streamRole: 'START',
     protocol: 'CSV',
@@ -1822,11 +1822,11 @@ export const MOCK_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
   },
   {
     definitionId: 'conn-def-rest-json',
-    name: 'REST JSON Connector (Req & Res Pair)',
+    name: 'REST JSON Node (Sub-DAG)',
     category: 'PROCESSOR',
     streamRole: 'MIDDLE',
     protocol: 'REST_JSON',
-    description: 'Composite HTTP REST client instantiating paired Request and Response nodes for record enrichment, payload generation, and JSONPath extraction.',
+    description: 'Composite HTTP REST client instantiating Sub-DAG with paired Request and Response nodes for record enrichment, payload generation, and JSONPath extraction.',
     icon: 'globe',
     composite: true,
     propertyManifest: JSON.stringify({
@@ -1845,11 +1845,11 @@ export const MOCK_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
   },
   {
     definitionId: 'conn-def-soap-xml',
-    name: 'SOAP XML Connector (Req & Res Pair)',
+    name: 'SOAP XML Node (Sub-DAG)',
     category: 'PROCESSOR',
     streamRole: 'MIDDLE',
     protocol: 'SOAP_XML',
-    description: 'Composite SOAP Web Service client instantiating XML Request Envelope generator and XML Response XPath extractor.',
+    description: 'Composite SOAP Web Service client instantiating Sub-DAG with XML Request Envelope generator and XML Response XPath extractor.',
     icon: 'code-2',
     composite: true,
     propertyManifest: JSON.stringify({
@@ -1866,7 +1866,7 @@ export const MOCK_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
   },
   {
     definitionId: 'conn-def-db-sink',
-    name: 'Database JDBC Sink Connector',
+    name: 'Database JDBC Sink Node',
     category: 'SINK',
     streamRole: 'END',
     protocol: 'DATABASE',
@@ -1979,7 +1979,7 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
         id: 'node-csv-src',
         type: 'CONNECTOR',
         refId: 'conn-def-csv',
-        label: 'CSV Ingestion Connector',
+        label: 'CSV Ingestion Node',
         subLabel: 'Manual / S3 Source',
         category: 'SOURCE',
         streamRole: 'START',
@@ -2059,7 +2059,7 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
               id: 'sub-rest-req',
               type: 'CONNECTOR',
               refId: 'conn-def-rest-json',
-              label: 'JSON Request Connector',
+              label: 'JSON Request Node',
               subLabel: 'POST /api/kyc/verify',
               category: 'PROCESSOR',
               streamRole: 'START',
@@ -2081,7 +2081,7 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
               id: 'sub-rest-res',
               type: 'CONNECTOR',
               refId: 'conn-def-rest-json',
-              label: 'JSON Response Connector',
+              label: 'JSON Response Node',
               subLabel: 'JSONPath Extractor',
               category: 'PROCESSOR',
               streamRole: 'MIDDLE',
@@ -2227,7 +2227,7 @@ export function getMockRouteTopology(routeId: string): RouteTopology {
         id: 'node-csv-src',
         type: 'CONNECTOR',
         refId: 'conn-def-csv',
-        label: 'CSV Ingestion Connector',
+        label: 'CSV Ingestion Node',
         subLabel: 'Source Stream',
         category: 'SOURCE',
         x: 80,
@@ -2505,7 +2505,7 @@ export function generateMockTraversalHistory(recordId: string, isFailed = false)
   return [
     {
       nodeId: 'node-source-csv',
-      nodeName: 'CSV Ingestion Connector',
+      nodeName: 'CSV Ingestion Node',
       timestamp: '2026-11-08T23:50:01.120Z',
       status: 'SUCCESS',
       stepDetails: 'Row parsed and validated against header schema'

@@ -64,7 +64,7 @@ export const CustomConnectorWizardModal: React.FC<Props> = ({
 
   const handleFinish = async () => {
     if (!name.trim()) {
-      setError('Connector name is required.');
+      setError('Node name is required.');
       return;
     }
 
@@ -93,7 +93,7 @@ export const CustomConnectorWizardModal: React.FC<Props> = ({
       });
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Failed to save custom connector');
+      setError(err?.message || 'Failed to save custom node');
     } finally {
       setSaving(false);
     }
@@ -423,7 +423,7 @@ export const CustomConnectorWizardModal: React.FC<Props> = ({
                   Configurable Parameters Manifest
                 </label>
                 <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0' }}>
-                  Fields that users will configure when using this connector
+                  Fields that users will configure when using this node
                 </p>
               </div>
 

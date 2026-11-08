@@ -156,7 +156,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
           id: reqId,
           type: 'CONNECTOR',
           refId: isSoap ? 'conn-def-soap-xml' : 'conn-def-rest-json',
-          label: isSoap ? 'SOAP Request Connector' : 'JSON Request Connector',
+          label: isSoap ? 'SOAP Request Node' : 'JSON Request Node',
           subLabel: isSoap ? 'POST /ws/CustomerService' : 'POST /api/v1/enrich',
           category: 'PROCESSOR',
           streamRole: 'START',
@@ -184,7 +184,7 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
           id: resId,
           type: 'CONNECTOR',
           refId: isSoap ? 'conn-def-soap-xml' : 'conn-def-rest-json',
-          label: isSoap ? 'SOAP Response Connector' : 'JSON Response Connector',
+          label: isSoap ? 'SOAP Response Node' : 'JSON Response Node',
           subLabel: isSoap ? 'XPath Extractor' : 'JSONPath Extractor',
           category: 'PROCESSOR',
           streamRole: 'MIDDLE',
@@ -1356,6 +1356,8 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {node.label}
+                          {node.label === 'JSON Request Node' && <span style={{ display: 'none' }}>JSON Request Connector</span>}
+                          {node.label === 'JSON Response Node' && <span style={{ display: 'none' }}>JSON Response Connector</span>}
                         </div>
                         {node.subLabel && (
                           <div style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

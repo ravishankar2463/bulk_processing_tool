@@ -394,7 +394,7 @@ export const ConnectorConfigDrawer: React.FC<Props> = ({
             </div>
             <div>
               <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted, #64748b)' }}>
-                {node.type} Configuration
+                Node Configuration
               </span>
               <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-main, #0f172a)' }}>
                 {node.label}
