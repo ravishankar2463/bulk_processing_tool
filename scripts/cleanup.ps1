@@ -128,7 +128,7 @@ try {
     $projectProcs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         $cmd = $_.CommandLine
         if (-not $cmd) { return $false }
-        $isProjectNode = ($_.Name -eq "node.exe" -and ($cmd -match "bulk_processing_tool" -or $cmd -match "vite"))
+        $isProjectNode = ($_.Name -eq "node.exe" -and ($cmd -match "bulk_processing_tool" -or $cmd -match "vite" -or $cmd -match "webapp"))
         $isProjectJava = ($_.Name -eq "java.exe" -and ($cmd -match "bulkprocessor" -or $cmd -match "bulk_processing_tool" -or $cmd -match "spring-boot:run"))
         return ($isProjectNode -or $isProjectJava) -and ($_.ProcessId -ne $PID)
     }

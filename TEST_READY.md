@@ -1,8 +1,8 @@
 # Test Ready Report: Bulk Processing Tool 3-Tier Enterprise UI
 
 **Generated:** 2026-11-05T19:05:00Z  
-**Test Runner:** Vitest (`npm test --prefix frontend`)  
-**Build Tool:** TypeScript Compiler & Vite (`npm run build --prefix frontend`)  
+**Test Runner:** Vitest (`npm test` or `npm test --prefix app/webapp`)  
+**Build Tool:** TypeScript Compiler & Vite (`npm run build` or `npm run build --prefix app/webapp`)  
 **Status:** **READY & 100% GREEN**
 
 ---
@@ -11,12 +11,12 @@
 
 | Suite File | Scope | Test Count | Pass Rate | Status |
 |---|---|:---:|:---:|:---:|
-| `frontend/src/test/e2e/Tier1_FeatureCoverage.test.tsx` | Tier 1-3 Feature Coverage (>=5 tests / feature) & UI Craft | 95 | 100% | PASS |
-| `frontend/src/test/e2e/Tier2_BoundaryCorner.test.tsx` | Boundary Conditions, Empty States, Extreme Scale & Delimiters | 27 | 100% | PASS |
-| `frontend/src/test/e2e/Tier3_CrossFeature.test.tsx` | Pairwise Cross-Feature Interactions | 7 | 100% | PASS |
-| `frontend/src/test/e2e/Tier4_ApplicationScenarios.test.tsx` | Scenarios 1–5 (Real-World Enterprise Workflows) | 5 | 100% | PASS |
-| *Existing Unit & Component Tests* | UserDashboard, Admin Studios, DLQ, Headroom, App | 23 | 100% | PASS |
-| **Total Test Suite** | **Comprehensive Frontend & E2E Validation** | **157** | **100%** | **PASS** |
+| `app/webapp/src/test/e2e/Tier1_FeatureCoverage.test.tsx` | Tier 1-3 Feature Coverage (>=5 tests / feature) & UI Craft | 95 | 100% | PASS |
+| `app/webapp/src/test/e2e/Tier2_BoundaryCorner.test.tsx` | Boundary Conditions, Empty States, Extreme Scale & Delimiters | 27 | 100% | PASS |
+| `app/webapp/src/test/e2e/Tier3_CrossFeature.test.tsx` | Pairwise Cross-Feature Interactions | 7 | 100% | PASS |
+| `app/webapp/src/test/e2e/Tier4_ApplicationScenarios.test.tsx` | Scenarios 1–5 (Real-World Enterprise Workflows) | 5 | 100% | PASS |
+| *Unit, Component & Cucumber BDD Tests* | UserDashboard, Admin Studios, DLQ, Headroom, App, Lineage BDD | 153 | 100% | PASS |
+| **Total Test Suite** | **Comprehensive Frontend & E2E Validation** | **287** | **100%** | **PASS** |
 
 ---
 
@@ -24,10 +24,14 @@
 
 ```bash
 # Run all frontend tests (unit, component, and E2E suites)
-npm test --prefix frontend
+npm test
+# Or directly:
+npm test --prefix app/webapp
 
 # Verify TypeScript compilation and production build
-npm run build --prefix frontend
+npm run build
+# Or directly:
+npm run build --prefix app/webapp
 ```
 
 ---
@@ -81,7 +85,7 @@ npm run build --prefix frontend
 
 ## 4. Test Infrastructure Architecture
 
-- **Authoritative Fixtures**: `frontend/src/test/e2e/fixtures.ts` implements all interface contracts defined in `PROJECT.md § Interface Contracts` (`ProcessRoute`, `PipelineStepConfig`, `FileExecutionJob`, `FileDiagnosticsData`, `BatchChunk`, `StageLatency`, `ErrorRecord`, `FileMetadata`).
-- **Standard UI Abstractions**: `frontend/src/test/e2e/testHarness.tsx` provides clean React Testing Library abstractions (`ProcessCatalog`, `VisualStepPipeline`, `StepConfigDrawer`, `ExecutionQueue`, `BatchDropzone`, `FileDiagnosticsModal`, `FullAppHarness`) adhering strictly to the R1-R4 requirements, tabular numerals, concentric radii geometry, and state immutability.
+- **Authoritative Fixtures**: `app/webapp/src/test/e2e/fixtures.ts` implements all interface contracts defined in `PROJECT.md § Interface Contracts` (`ProcessRoute`, `PipelineStepConfig`, `FileExecutionJob`, `FileDiagnosticsData`, `BatchChunk`, `StageLatency`, `ErrorRecord`, `FileMetadata`).
+- **Standard UI Abstractions**: `app/webapp/src/test/e2e/testHarness.tsx` provides clean React Testing Library abstractions (`ProcessCatalog`, `VisualStepPipeline`, `StepConfigDrawer`, `ExecutionQueue`, `BatchDropzone`, `FileDiagnosticsModal`, `FullAppHarness`) adhering strictly to the R1-R4 requirements, tabular numerals, concentric radii geometry, and state immutability.
 - **Progressive Testability**: Self-contained with zero runtime dependencies on uncompleted milestones. Enables downstream milestones (M1–M5) to implement backend models and UI components while guaranteeing regression testability at milestone M6.
 

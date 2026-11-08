@@ -83,7 +83,7 @@ try {
     Log-Trace "Step 2: Preparing backend runner"
     Write-Host "[2/4] Starting Spring Boot Backend (Java 21 Project Loom, Camel, REST API)..." -ForegroundColor Yellow
     $javaHome = "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot"
-    $backendDir = Join-Path $WorkspaceRoot "backend"
+    $backendDir = Join-Path $WorkspaceRoot "app"
     $backendLog = Join-Path $RunDir "backend.log"
     $backendRunner = Join-Path $RunDir "run-backend.ps1"
     if (Test-Path $backendLog) { Remove-Item $backendLog -Force -ErrorAction SilentlyContinue }
@@ -119,10 +119,10 @@ try {
     }
 
     # -------------------------------------------------------------
-    # Step 3: Launch React Vite Frontend
+    # Step 3: Launch React Vite Frontend (UI Webapp)
     # -------------------------------------------------------------
     Write-Host "[3/4] Starting Frontend Portal (User Portal & Admin Studio)..." -ForegroundColor Yellow
-    $frontendDir = Join-Path $WorkspaceRoot "frontend"
+    $frontendDir = Join-Path (Join-Path $WorkspaceRoot "app") "webapp"
     $frontendLog = Join-Path $RunDir "frontend.log"
     $frontendRunner = Join-Path $RunDir "run-frontend.ps1"
     if (Test-Path $frontendLog) { Remove-Item $frontendLog -Force -ErrorAction SilentlyContinue }

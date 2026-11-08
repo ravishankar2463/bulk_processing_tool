@@ -1,16 +1,16 @@
 # Project: Bulk Processing Tool 3-Tier Enterprise UI Revamp
 
 ## Architecture
-- **Presentation Layer (`frontend/`)**: React 18.3.1 + Vite 5.4.8 + TypeScript 5.6.3 (strict mode) + Lucide-React.
+- **Presentation Layer (`app/webapp/`)**: React 18.3.1 + Vite 5.4.8 + TypeScript 5.6.3 (strict mode) + Lucide-React.
   - Multi-tier hierarchy:
-    - **Tier 1 (Catalog)**: `frontend/src/components/catalog/ProcessCatalog.tsx`
-    - **Tier 2 (Workspace)**: `frontend/src/components/workspace/ProcessWorkspace.tsx`, `StepConfigDrawer.tsx`
-    - **Tier 3 (Diagnostics)**: `frontend/src/components/diagnostics/FileDiagnosticsModal.tsx`
-  - Client API layer: `frontend/src/services/apiClient.ts` with transparent fallback between mock fixtures (for Vitest tests & offline execution) and live Spring Boot calls.
-  - Design system: `frontend/src/index.css` anti-slop tokens: concentric radii ($R_{outer} = R_{inner} + padding$), layered shadows, tabular numerals, spring physics transitions.
-- **Backend Service Layer (`backend/`)**: Spring Boot 3.3.4 + Java 21 + Apache Camel 4.8.0 + Project Loom virtual threads.
+    - **Tier 1 (Catalog)**: `app/webapp/src/components/catalog/ProcessCatalog.tsx`
+    - **Tier 2 (Workspace)**: `app/webapp/src/components/workspace/ProcessWorkspace.tsx`, `StepConfigDrawer.tsx`
+    - **Tier 3 (Diagnostics)**: `app/webapp/src/components/diagnostics/FileDiagnosticsModal.tsx`
+  - Client API layer: `app/webapp/src/services/apiClient.ts` with transparent fallback between mock fixtures (for Vitest tests & offline execution) and live Spring Boot calls.
+  - Design system: `app/webapp/src/index.css` anti-slop tokens: concentric radii ($R_{outer} = R_{inner} + padding$), layered shadows, tabular numerals, spring physics transitions.
+- **Backend Service Layer (`app/src/`)**: Spring Boot 3.3.4 + Java 21 + Apache Camel 4.8.0 + Project Loom virtual threads.
   - REST endpoints for process catalog, health, active files in flight, batch job execution progression, per-file lifecycle actions (pause, resume, retry, cancel), and deep file diagnostics.
-- **E2E Testing Track**: Autonomous test runner and suites in `frontend/src/test/e2e/` covering Tier 1 (Feature Coverage), Tier 2 (Boundary & Corner), Tier 3 (Cross-Feature Combinations), and Tier 4 (Real-World Application Scenarios).
+- **E2E Testing Track**: Autonomous test runner and suites in `app/webapp/src/test/e2e/` covering Tier 1 (Feature Coverage), Tier 2 (Boundary & Corner), Tier 3 (Cross-Feature Combinations), and Tier 4 (Real-World Application Scenarios).
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
@@ -60,22 +60,22 @@
 | M6 | Final Milestone: E2E Verification & Hardening | Phase 1: Pass 100% of E2E test suite (Tiers 1-4). Phase 2: Adversarial coverage hardening (Tier 5). Clean forensic audit. | E2E, M5 | DONE |
 
 ## Interface Contracts
-### `frontend/src/types/process.ts`
+### `app/webapp/src/types/process.ts`
 - Implemented and verified: `ProcessRoute`, `PipelineStepConfig`, `FileExecutionJob`, `FileDiagnosticsData`, `BatchChunk`, `RecordErrorItem`.
 
 ### Backend REST Contracts
 - Implemented and verified: `GET /api/v1/routes/catalog`, `POST /api/v1/routes/{routeId}/start`, `POST /api/v1/routes/{routeId}/pause`, `GET /api/v1/processes/{processId}/jobs`, `POST /api/v1/user/jobs/batch-upload`, `/api/v1/user/jobs/{jobId}/pause`, `resume`, `retry`, `cancel`, `GET /api/v1/user/jobs/{jobId}/diagnostics`.
 
 ## Code Layout
-- `frontend/src/types/process.ts`: TypeScript interfaces and types (DONE).
-- `frontend/src/services/apiClient.ts`: Client API layer with live/mock fallback (DONE).
-- `frontend/src/components/catalog/ProcessCatalog.tsx`: Tier 1 Process Catalog (M2).
-- `frontend/src/components/workspace/ProcessWorkspace.tsx`: Tier 2 Process Workspace (M3).
-- `frontend/src/components/workspace/StepConfigDrawer.tsx`: Tier 2 Side Drawer (M3).
-- `frontend/src/components/diagnostics/FileDiagnosticsModal.tsx`: Tier 3 File Diagnostics Modal (M4).
-- `frontend/src/utils/headroomCompressor.ts`: Headroom context compression logic (existing).
-- `frontend/src/index.css`: Design tokens, radii, shadows, typography (M5).
-- `frontend/src/test/`: Vitest test suites.
-- `frontend/src/test/e2e/`: E2E test suites (Tiers 1-4) (DONE).
-- `backend/src/main/java/com/bulkprocessor/`: Spring Boot REST controllers, services, seeders (DONE).
+- `app/webapp/src/types/process.ts`: TypeScript interfaces and types (DONE).
+- `app/webapp/src/services/apiClient.ts`: Client API layer with live/mock fallback (DONE).
+- `app/webapp/src/components/catalog/ProcessCatalog.tsx`: Tier 1 Process Catalog (M2).
+- `app/webapp/src/components/workspace/ProcessWorkspace.tsx`: Tier 2 Process Workspace (M3).
+- `app/webapp/src/components/workspace/StepConfigDrawer.tsx`: Tier 2 Side Drawer (M3).
+- `app/webapp/src/components/diagnostics/FileDiagnosticsModal.tsx`: Tier 3 File Diagnostics Modal (M4).
+- `app/webapp/src/utils/headroomCompressor.ts`: Headroom context compression logic (existing).
+- `app/webapp/src/index.css`: Design tokens, radii, shadows, typography (M5).
+- `app/webapp/src/test/`: Vitest test suites.
+- `app/webapp/src/test/e2e/`: E2E test suites (Tiers 1-4) (DONE).
+- `app/src/main/java/com/bulkprocessor/`: Spring Boot REST controllers, services, seeders (DONE).
 

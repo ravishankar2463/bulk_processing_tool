@@ -666,8 +666,9 @@ bulk-processing-tool/
 ├── docs/
 │   ├── architecture.md
 │   └── api-spec.yaml
-├── backend/
+├── app/
 │   ├── pom.xml
+│   ├── mvnw, mvnw.cmd
 │   └── src/
 │       ├── main/
 │       │   ├── java/com/bulkprocessor/
@@ -701,12 +702,13 @@ bulk-processing-tool/
 │       │       ├── application.yml
 │       │       └── db/migration/    # Flyway scripts (V1__init_schema.sql)
 │       └── test/                    # Testcontainers & Unit test suites
-├── frontend/
-│   ├── package.json
-│   ├── admin-portal/                # Admin UI (React 19 + Vite + Tailwind + shadcn/ui)
-│   │   ├── src/
-│   │   │   ├── pages/
-│   │   │   │   ├── components/      # Component Catalog, Wizard & Individual Editor
+│   └── webapp/                      # React UI
+│       ├── package.json
+│       ├── vite.config.ts
+│       ├── src/
+│       │   ├── components/          # 3-Tier Components (Catalog, Workspace, Diagnostics)
+│       │   ├── services/            # API Client layer
+│       │   └── test/                # 287 Vitest suites
 │   │   │   │   ├── pipelines/       # Pipeline Builder & Assembly Wizard
 │   │   │   │   ├── routes/          # Route Studio with Connection Tester
 │   │   │   │   ├── dlq/             # Dead Letter Queue Replay Console
@@ -730,7 +732,7 @@ bulk-processing-tool/
 ### Phase 1: Foundation, Infrastructure & Database Schemas
 - **Objectives**: Set up build configuration (Java 21, Spring Boot 3.3+, Spring Cloud, Camel, Kafka, Testcontainers), Docker Compose environment, and define the database-driven configuration schema and core generic interfaces.
 - **Deliverables**:
-  - `backend/pom.xml` with Virtual Thread flags and Janino/Groovy compilation dependencies.
+  - `app/pom.xml` with Virtual Thread flags and Janino/Groovy compilation dependencies.
   - `docker-compose.yml` defining PostgreSQL 16, Redis 7, Apache Kafka (KRaft mode), and LocalStack (S3 mock).
   - Flyway migration script `V1__init_config_and_job_schemas.sql` (creating `component_instance`, `component_instance_version`, `route_config`, `process_definition`, `process_step_config`, `lifecycle_hook_config`, `bulk_job`, `bulk_record_error`).
   - Core domain models and interfaces (`JobContext`, `RecordItem<T>`, `FileBatch<T>`, `RecordSplitter<T>`, `ProcessStep<I, O>`).

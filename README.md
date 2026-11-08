@@ -8,7 +8,7 @@
 [![React](https://img.shields.io/badge/React-18.3.1-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tests](https://img.shields.io/badge/Vitest%20BDD-286%20Passed-10B981?style=flat-square&logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Tests](https://img.shields.io/badge/Vitest%20BDD-287%20Passed-10B981?style=flat-square&logo=vitest&logoColor=white)](https://vitest.dev/)
 
 ---
 
@@ -41,19 +41,27 @@ Incoming Stream (CSV / JSON)
 
 ```
 bulk_processing_tool/
-├── backend/                       # Java 21 / Spring Boot 3.3.4
-│   ├── src/main/java/             # Camel routes, Janino compiler, Loom threadpool, JPA repositories
-│   └── pom.xml                    # Maven build descriptor
-├── frontend/                      # React 18 / Vite 5 / TypeScript 5.6
-│   ├── src/components/            # 3-Tier UI: Catalog, Workspace, Diagnostics, Admin DCE
-│   ├── src/services/              # Resilient apiClient with live/mock transparent fallback
-│   ├── src/test/                  # 286 Vitest BDD Cucumber/Jasmine suites
-│   └── package.json               # Frontend dependencies & scripts
+├── app/
+│   ├── src/                       # Java 21 / Spring Boot 3.3.4 Backend
+│   │   ├── main/java/             # Camel routes, Janino compiler, Loom threadpool, JPA repositories
+│   │   ├── main/resources/        # Application config, Flyway migrations (PostgreSQL)
+│   │   └── test/java/             # Backend unit, integration, and benchmark tests
+│   ├── webapp/                    # React 18 / Vite 5 / TypeScript 5.6 UI
+│   │   ├── src/components/        # 3-Tier UI: Catalog, Workspace, Diagnostics, Admin DCE
+│   │   ├── src/services/          # Resilient apiClient with live/mock transparent fallback
+│   │   ├── src/test/              # 287 Vitest BDD Cucumber/Jasmine suites
+│   │   └── package.json           # Frontend dependencies & scripts
+│   ├── pom.xml                    # Backend Maven build descriptor
+│   └── mvnw, mvnw.cmd             # Maven wrapper scripts
 ├── scripts/                       # Automated runtime orchestration and watchdog monitors
 │   ├── orchestrator.ps1           # Launches Docker, Backend, Frontend, and browser tab
+│   ├── cleanup.ps1                # Idempotent cleanup script terminating all instances
 │   └── watchdog.ps1               # Automated cleanup watchdog terminating orphaned processes
 ├── docker-compose.yml             # PostgreSQL 16, Redis 7, Kafka KRaft
-└── start.ps1                      # Single-click launch script
+├── pom.xml                        # Root Maven aggregator descriptor
+├── package.json                   # Root convenience runner scripts (npm run dev/build/test)
+├── start.ps1 / start.bat          # Single-click launch scripts
+└── stop.ps1 / stop.bat            # Clean shutdown scripts
 ```
 
 ### Infrastructure Layer
@@ -182,18 +190,20 @@ docker compose up -d postgres redis kafka
 
 #### Step 2: Start Spring Boot Backend
 ```bash
-cd backend
+cd app
 ./mvnw spring-boot:run
 # Windows: .\mvnw.cmd spring-boot:run
 ```
+*(Or from the repository root: `.\mvnw.cmd spring-boot:run -f app/pom.xml`)*  
 The REST API and SSE stream will be available at `http://localhost:8080/api/v1`.
 
-#### Step 3: Start React Frontend
+#### Step 3: Start React UI Webapp
 ```bash
-cd frontend
+cd app/webapp
 npm install
 npm run dev
 ```
+*(Or from the repository root: `npm run dev`)*  
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
@@ -230,11 +240,16 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 The project includes an exhaustive 5-tier test suite executed via Vitest and Testing Library:
 
 ```bash
-# Run all 286 tests across 23 test suites
-npm --prefix frontend test -- --run
+# Run all 287 tests across 23 test suites (from root)
+npm test
+
+# Alternatively, run directly from app/webapp
+npm --prefix app/webapp test -- --run
 
 # Run typecheck and production build
-npm --prefix frontend run build
+npm run build
+# Or directly:
+npm --prefix app/webapp run build
 ```
 
 ### Verification Matrix

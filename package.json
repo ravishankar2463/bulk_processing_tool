@@ -1,0 +1,12 @@
+{
+  "name": "bulk-processing-tool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Distributed High-Throughput Bulk Processing Engine with Virtual Threads & Dual Portals",
+  "scripts": {
+    "dev": "npm --prefix app/webapp run dev",
+    "build": "npm --prefix app/webapp run build",
+    "test": "npm --prefix app/webapp test",
+    "test:run": "npm --prefix app/webapp test -- --run"
+  }
+}

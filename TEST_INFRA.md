@@ -31,11 +31,11 @@
 | 20 | UI Craft: Concentric Radii Geometry ($R_{outer} = R_{inner} + padding$) & Subtle Shadows | R4 | >=5 | >=5 | ✓ | ✓ |
 
 ## Test Architecture
-- Test runner: Vitest (`npm test --prefix frontend`)
+- Test runner: Vitest (`npm test` or `npm test --prefix app/webapp`)
 - Test directories:
-  - Unit/Component tests: `frontend/src/test/`
-  - E2E / Integration tests: `frontend/src/test/e2e/`
-- Command to run test suite: `npm test --prefix frontend`
+  - Unit/Component tests: `app/webapp/src/test/`
+  - E2E / Integration tests: `app/webapp/src/test/e2e/`
+- Command to run test suite: `npm test` or `npm --prefix app/webapp test -- --run`
 - Verification semantics: All tests pass with exit code 0; zero failed tests.
 
 ## Real-World Application Scenarios (Tier 4)
