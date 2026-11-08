@@ -1,70 +1,168 @@
 # scripts/cleanup.ps1
-# Idempotent cleanup script to terminate backend, frontend, and bring down docker containers.
+# Comprehensive, idempotent cleanup script to terminate all backend, frontend, watchdog,
+# and port-listener instances, and bring down Docker containers.
 
 $ErrorActionPreference = "SilentlyContinue"
-$ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
-$WorkspaceRoot = Split-Path -Parent $ScriptDir
+
+# -------------------------------------------------------------
+# 1. Resolve Workspace Root Reliably
+# -------------------------------------------------------------
+$WorkspaceRoot = $null
+if ($PSScriptRoot) {
+    if (Test-Path (Join-Path $PSScriptRoot "..\package.json")) {
+        $WorkspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    } elseif (Test-Path (Join-Path $PSScriptRoot "package.json")) {
+        $WorkspaceRoot = (Resolve-Path $PSScriptRoot).Path
+    }
+}
+
+if (-not $WorkspaceRoot) {
+    $current = (Get-Location).Path
+    if (Test-Path (Join-Path $current "scripts\cleanup.ps1")) {
+        $WorkspaceRoot = $current
+    } elseif (Test-Path (Join-Path $current "..\scripts\cleanup.ps1")) {
+        $WorkspaceRoot = (Resolve-Path (Join-Path $current "..")).Path
+    } else {
+        $WorkspaceRoot = $current
+    }
+}
+
 $RunDir = Join-Path $WorkspaceRoot ".run"
 
-Write-Host "Stopping services and cleaning up resources..." -ForegroundColor Yellow
+Write-Host "=====================================================================" -ForegroundColor Cyan
+Write-Host "       STOPPING ALL BULK PROCESSOR INSTANCES & CLEANING UP           " -ForegroundColor Cyan
+Write-Host "=====================================================================" -ForegroundColor Cyan
+Write-Host "Workspace Root: $WorkspaceRoot" -ForegroundColor Gray
 
-# 0. Terminate any running watchdog processes
-try {
-    Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%watchdog%'" -ErrorAction SilentlyContinue | ForEach-Object {
-        if ($_.ProcessId -ne $PID) {
-            & taskkill.exe /PID $_.ProcessId /T /F 2>$null | Out-Null
+# Helper to kill a process and its children aggressively
+function Kill-ProcessTree([int]$targetPid, [string]$label = "") {
+    if ($targetPid -le 0 -or $targetPid -eq $PID) { return }
+    try {
+        $proc = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
+        if ($proc) {
+            $name = $proc.ProcessName
+            Write-Host "  Terminating $label (PID: $targetPid, Name: $name)..." -ForegroundColor Yellow
+            & taskkill.exe /PID $targetPid /T /F 2>$null | Out-Null
+            Stop-Process -Id $targetPid -Force -ErrorAction SilentlyContinue
         }
+    } catch {}
+}
+
+# -------------------------------------------------------------
+# 2. Terminate Running Watchdogs and Runner Wrappers
+# -------------------------------------------------------------
+try {
+    $watchdogs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $cmd = $_.CommandLine
+        if (-not $cmd) { return $false }
+        return ($cmd -match "watchdog\.ps1" -or $cmd -match "run-frontend\.ps1" -or $cmd -match "run-backend\.ps1") -and ($_.ProcessId -ne $PID)
+    }
+    foreach ($w in $watchdogs) {
+        Kill-ProcessTree $w.ProcessId "Watchdog/Runner"
     }
 } catch {}
 
-# 1. Kill backend process tree
-$BackendPidFile = Join-Path $RunDir "backend.pid"
-if (Test-Path $BackendPidFile) {
-    $bPid = Get-Content $BackendPidFile -Raw
-    if ($bPid -match '^\d+$') {
-        Write-Host "  Stopping Backend (PID: $bPid)..." -ForegroundColor Gray
-        & taskkill.exe /PID $bPid /T /F 2>$null | Out-Null
+# -------------------------------------------------------------
+# 3. Kill Processes from PID Files
+# -------------------------------------------------------------
+$pidFiles = @("backend.pid", "frontend.pid", "terminal.pid")
+foreach ($pf in $pidFiles) {
+    $fullPath = Join-Path $RunDir $pf
+    if (Test-Path $fullPath) {
+        try {
+            $savedPid = (Get-Content $fullPath -Raw -ErrorAction SilentlyContinue).Trim()
+            if ($savedPid -match '^\d+$') {
+                Kill-ProcessTree ([int]$savedPid) "Saved PID ($pf)"
+            }
+        } catch {}
+        Remove-Item $fullPath -Force -ErrorAction SilentlyContinue
     }
-    Remove-Item $BackendPidFile -Force -ErrorAction SilentlyContinue
 }
 
-# 2. Kill frontend process tree
-$FrontendPidFile = Join-Path $RunDir "frontend.pid"
-if (Test-Path $FrontendPidFile) {
-    $fPid = Get-Content $FrontendPidFile -Raw
-    if ($fPid -match '^\d+$') {
-        Write-Host "  Stopping Frontend (PID: $fPid)..." -ForegroundColor Gray
-        & taskkill.exe /PID $fPid /T /F 2>$null | Out-Null
-    }
-    Remove-Item $FrontendPidFile -Force -ErrorAction SilentlyContinue
-}
-
-# 3. Kill any remaining processes listening on ports 8080 and 5173
-$targetPorts = @(8080, 5173)
+# -------------------------------------------------------------
+# 4. Terminate Any Processes Listening on Ports (5173, 5174, 5175, 8080)
+# -------------------------------------------------------------
+$targetPorts = @(5173, 5174, 5175, 8080)
 foreach ($port in $targetPorts) {
+    # Strategy A: Get-NetTCPConnection (PowerShell NetTCPIP)
     try {
-        $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+        $connections = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
         foreach ($conn in $connections) {
             $pId = $conn.OwningProcess
             if ($pId -gt 0 -and $pId -ne $PID) {
-                Write-Host "  Terminating remaining process on port $port (PID: $pId)..." -ForegroundColor Gray
-                & taskkill.exe /PID $pId /T /F 2>$null | Out-Null
+                Kill-ProcessTree $pId "Port $port listener (Get-NetTCPConnection)"
             }
         }
-    } catch {
-        # ignore
+    } catch {}
+
+    # Strategy B: netstat -ano fallback (Universal across all Windows versions & permissions)
+    try {
+        $lines = netstat.exe -ano | Select-String ":$port\s+"
+        foreach ($line in $lines) {
+            $parts = ($line.ToString().Trim() -split '\s+')
+            if ($parts.Length -ge 5) {
+                $pIdStr = $parts[-1]
+                if ($pIdStr -match '^\d+$') {
+                    $pId = [int]$pIdStr
+                    if ($pId -gt 0 -and $pId -ne $PID) {
+                        Kill-ProcessTree $pId "Port $port listener (netstat)"
+                    }
+                }
+            }
+        }
+    } catch {}
+}
+
+# -------------------------------------------------------------
+# 5. Terminate Any Lingering Project-Specific Node & Java Processes
+# -------------------------------------------------------------
+try {
+    $projectProcs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $cmd = $_.CommandLine
+        if (-not $cmd) { return $false }
+        $isProjectNode = ($_.Name -eq "node.exe" -and ($cmd -match "bulk_processing_tool" -or $cmd -match "vite"))
+        $isProjectJava = ($_.Name -eq "java.exe" -and ($cmd -match "bulkprocessor" -or $cmd -match "bulk_processing_tool" -or $cmd -match "spring-boot:run"))
+        return ($isProjectNode -or $isProjectJava) -and ($_.ProcessId -ne $PID)
+    }
+    foreach ($p in $projectProcs) {
+        Kill-ProcessTree $p.ProcessId "Lingering project process ($($p.Name))"
+    }
+} catch {}
+
+# -------------------------------------------------------------
+# 6. Bring Down Docker Containers
+# -------------------------------------------------------------
+Write-Host "Bringing down Docker containers (PostgreSQL, Redis, Kafka)..." -ForegroundColor Gray
+try {
+    Push-Location $WorkspaceRoot
+    & docker compose down 2>$null | Out-Null
+    Pop-Location
+} catch {}
+
+# -------------------------------------------------------------
+# 7. Clean Up Lockfiles and Temporary Scripts
+# -------------------------------------------------------------
+if (Test-Path $RunDir) {
+    Remove-Item (Join-Path $RunDir "*.pid") -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $RunDir "run-*.ps1") -Force -ErrorAction SilentlyContinue
+}
+
+# -------------------------------------------------------------
+# 8. Post-Verification Check
+# -------------------------------------------------------------
+$remainingListeners = @()
+foreach ($port in @(5173, 8080)) {
+    $check = netstat.exe -ano | Select-String ":$port\s+.*LISTENING"
+    if ($check) {
+        $remainingListeners += $port
     }
 }
 
-# 4. Bring down Docker containers
-Write-Host "  Bringing down Docker containers (postgres, redis, kafka)..." -ForegroundColor Gray
-Set-Location $WorkspaceRoot
-& docker compose down 2>$null | Out-Null
-
-# 5. Clean up lockfiles
-Remove-Item (Join-Path $RunDir "terminal.pid") -Force -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $RunDir "run-backend.ps1") -Force -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $RunDir "run-frontend.ps1") -Force -ErrorAction SilentlyContinue
-
-Write-Host "All services stopped and infrastructure brought down." -ForegroundColor Green
-
+Write-Host ""
+if ($remainingListeners.Count -gt 0) {
+    Write-Host "[WARNING] Active listeners still detected on ports: $($remainingListeners -join ', ')" -ForegroundColor Red
+} else {
+    Write-Host "[SUCCESS] All instances terminated. Ports 5173 and 8080 are completely closed." -ForegroundColor Green
+    Write-Host "UI on http://localhost:5173/ is offline." -ForegroundColor Green
+}
+Write-Host "=====================================================================" -ForegroundColor Cyan
