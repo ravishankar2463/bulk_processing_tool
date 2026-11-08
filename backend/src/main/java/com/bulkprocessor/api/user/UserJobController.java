@@ -99,9 +99,23 @@ public class UserJobController {
     public ResponseEntity<List<BulkJobEntity>> listJobs(
             @RequestParam(value = "processId", required = false) String processId) {
         if (processId != null && !processId.isBlank()) {
-            return ResponseEntity.ok(bulkJobRepository.findByProcessIdOrderByStartTimeDesc(processId));
+            return ResponseEntity.ok(bulkJobRepository.findByProcessIdOrderByStartTimeDesc(resolveProcessId(processId)));
         }
         return ResponseEntity.ok(bulkJobRepository.findByOrderByStartTimeDesc());
+    }
+
+    @GetMapping({"/api/v1/processes/{processId}/jobs", "/api/v1/routes/{processId}/jobs"})
+    public ResponseEntity<List<BulkJobEntity>> listJobsByProcess(@PathVariable String processId) {
+        String targetProcessId = resolveProcessId(processId);
+        return ResponseEntity.ok(bulkJobRepository.findByProcessIdOrderByStartTimeDesc(targetProcessId));
+    }
+
+    private String resolveProcessId(String processId) {
+        if (processId == null) return "proc-customer-master";
+        if ("customer-master-onboarding".equalsIgnoreCase(processId)) return "proc-customer-master";
+        if ("order-fulfillment-stream".equalsIgnoreCase(processId)) return "proc-order-fulfillment";
+        if ("financial-reconciliation".equalsIgnoreCase(processId)) return "proc-financial-reconciliation";
+        return processId;
     }
 
     @GetMapping("/api/v1/user/jobs/{jobId}")

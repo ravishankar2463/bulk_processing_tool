@@ -2,6 +2,8 @@ import {
   ProcessRoute,
   PipelineStepConfig,
   FileExecutionJob,
+  JobStage,
+  JobStatus,
   FileDiagnosticsData,
   BatchChunk,
   StageLatency,
@@ -1386,6 +1388,80 @@ export async function pauseRoute(routeId: string): Promise<ProcessRoute> {
 }
 
 /**
+ * Match a job's processId or ID against a target routeId, handling enterprise tier aliases.
+ */
+export function matchProcessRoute(jobProcessId?: string, targetRouteId?: string, jobId?: string, fileName?: string): boolean {
+  if (!targetRouteId) return true;
+  const jProc = (jobProcessId || '').toLowerCase();
+  const rId = targetRouteId.toLowerCase();
+  const jId = (jobId || '').toLowerCase();
+  const fName = (fileName || '').toLowerCase();
+
+  if (jProc === rId) return true;
+  if (rId.includes('customer') && (jProc.includes('customer') || jProc.includes('cmo') || jId.includes('cmo') || jId.includes('101') || fName.includes('customer'))) return true;
+  if (rId.includes('order') && (jProc.includes('order') || jProc.includes('ofs') || fName.includes('order'))) return true;
+  if (rId.includes('financial') && (jProc.includes('fin') || jProc.includes('reconcil') || fName.includes('ledger') || fName.includes('fin'))) return true;
+  return false;
+}
+
+/**
+ * Normalizes a raw backend BulkJobEntity or partial object into a compliant FileExecutionJob.
+ */
+export function normalizeBackendJob(raw: any, targetProcessId?: string): FileExecutionJob {
+  const id = String(raw.id || raw.jobId || 'job-unknown');
+  
+  // Resolve canonical frontend routeId
+  let processId = raw.processId || targetProcessId || 'customer-master-onboarding';
+  if (processId === 'proc-customer-master' || processId.includes('customer') || id.includes('cmo') || id.includes('101') || (raw.fileName && raw.fileName.includes('customer'))) {
+    processId = 'customer-master-onboarding';
+  } else if (processId === 'proc-order-fulfillment' || processId.includes('order') || id.includes('ofs') || (raw.fileName && raw.fileName.includes('order'))) {
+    processId = 'order-fulfillment-stream';
+  } else if (processId === 'proc-financial-reconciliation' || processId.includes('financial') || id.includes('fin') || (raw.fileName && raw.fileName.includes('ledger'))) {
+    processId = 'financial-reconciliation';
+  }
+
+  // Canonical JobStatus: 'RUNNING' | 'COMPLETED' | 'PAUSED' | 'FAILED'
+  let status: JobStatus = 'RUNNING';
+  const rawStatus = String(raw.status || '').toUpperCase();
+  if (rawStatus === 'COMPLETED' || rawStatus === 'DONE') {
+    status = 'COMPLETED';
+  } else if (rawStatus === 'PAUSED') {
+    status = 'PAUSED';
+  } else if (rawStatus === 'FAILED' || rawStatus === 'ERROR') {
+    status = 'FAILED';
+  } else {
+    status = 'RUNNING';
+  }
+
+  // Canonical JobStage: 'INGESTING' | 'SPLITTING' | 'IN_FLIGHT' | 'SINKING' | 'DONE'
+  let stage: JobStage = 'IN_FLIGHT';
+  const rawStage = String(raw.stage || '').toUpperCase();
+  if (rawStage === 'INGESTING' || rawStage === 'SPLITTING' || rawStage === 'IN_FLIGHT' || rawStage === 'SINKING' || rawStage === 'DONE') {
+    stage = rawStage as JobStage;
+  } else if (status === 'COMPLETED') {
+    stage = 'DONE';
+  }
+
+  return {
+    id,
+    processId,
+    fileName: raw.fileName || 'unknown.csv',
+    fileSizeBytes: raw.fileSizeBytes || 2048500,
+    stage,
+    status,
+    totalRecords: raw.totalRecords ?? 1000,
+    processedRecords: raw.processedRecords ?? 0,
+    failedRecords: raw.failedRecords ?? 0,
+    submittedAt: raw.submittedAt || raw.startTime || new Date().toISOString(),
+    completedAt: raw.completedAt || raw.endTime,
+    checksumSha256: raw.checksumSha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    detectedEncoding: raw.detectedEncoding || 'UTF-8',
+    detectedDelimiter: raw.detectedDelimiter || ',',
+    loomThreadAllocation: raw.loomThreadAllocation || 'virtual-worker-101-loom-01'
+  };
+}
+
+/**
  * Fetch execution queue jobs, optionally filtered by processId.
  */
 export async function fetchProcessJobs(processId?: string): Promise<FileExecutionJob[]> {
@@ -1395,9 +1471,15 @@ export async function fetchProcessJobs(processId?: string): Promise<FileExecutio
       : `${API_BASE}/api/v1/user/jobs`;
     const res = await fetch(url, { credentials: 'omit' });
     if (res.ok) {
-      const data: FileExecutionJob[] = await res.json();
+      const data: any[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        return data;
+        const normalized = data.map(item => normalizeBackendJob(item, processId));
+        if (processId) {
+          return normalized
+            .filter(j => matchProcessRoute(j.processId, processId, j.id, j.fileName))
+            .map(j => ({ ...j, processId }));
+        }
+        return normalized;
       }
     }
   } catch {
@@ -1405,7 +1487,9 @@ export async function fetchProcessJobs(processId?: string): Promise<FileExecutio
   }
 
   if (processId) {
-    return mockJobsStore.filter(j => j.processId === processId);
+    return mockJobsStore
+      .filter(j => matchProcessRoute(j.processId, processId, j.id, j.fileName))
+      .map(j => ({ ...j, processId }));
   }
   return [...mockJobsStore];
 }

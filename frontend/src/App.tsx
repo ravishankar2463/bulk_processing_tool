@@ -619,22 +619,32 @@ export const App: React.FC = () => {
         {activeWorkspaceRouteId ? (
           <ProcessWorkspace
             route={processRoutes.find(r => r.id === activeWorkspaceRouteId) || processRoutes[0]}
-            jobs={processJobs.length > 0 ? processJobs : jobs.map(j => ({
-              id: j.jobId,
-              processId: activeWorkspaceRouteId,
-              fileName: j.fileName,
-              fileSizeBytes: 2048500,
-              stage: (j.status === 'COMPLETED' ? 'DONE' : 'IN_FLIGHT') as any,
-              status: (j.status === 'COMPLETED' ? 'COMPLETED' : 'RUNNING') as any,
-              totalRecords: j.totalRecords,
-              processedRecords: j.processedRecords,
-              failedRecords: j.failedRecords,
-              submittedAt: j.startTime,
-              checksumSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-              detectedEncoding: 'UTF-8',
-              detectedDelimiter: ',',
-              loomThreadAllocation: 'virtual-worker-101-loom-01'
-            }))}
+            jobs={(() => {
+              const allJobs = [...processJobs];
+              const seen = new Set(allJobs.map(j => j.id));
+              for (const j of jobs) {
+                if (!seen.has(j.jobId)) {
+                  allJobs.push({
+                    id: j.jobId,
+                    processId: j.processId || activeWorkspaceRouteId,
+                    fileName: j.fileName,
+                    fileSizeBytes: 2048500,
+                    stage: (j.status === 'COMPLETED' ? 'DONE' : 'IN_FLIGHT') as any,
+                    status: (j.status === 'COMPLETED' ? 'COMPLETED' : 'RUNNING') as any,
+                    totalRecords: j.totalRecords,
+                    processedRecords: j.processedRecords,
+                    failedRecords: j.failedRecords,
+                    submittedAt: j.startTime,
+                    checksumSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+                    detectedEncoding: 'UTF-8',
+                    detectedDelimiter: ',',
+                    loomThreadAllocation: 'virtual-worker-101-loom-01'
+                  });
+                  seen.add(j.jobId);
+                }
+              }
+              return allJobs;
+            })()}
             onBackToCatalog={() => setActiveWorkspaceRouteId(null)}
             onUpdateStep={(updatedStep) => {
               setProcessRoutes(prev => prev.map(r => {

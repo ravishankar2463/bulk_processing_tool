@@ -69,6 +69,12 @@ public class BulkJobEntity {
     public String getJobId() { return jobId; }
     public void setJobId(String jobId) { this.jobId = jobId; }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("id")
+    public String getId() { return jobId; }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("submittedAt")
+    public Instant getSubmittedAt() { return startTime; }
+
     public String getFileName() { return fileName; }
     public void setFileName(String fileName) { this.fileName = fileName; }
 

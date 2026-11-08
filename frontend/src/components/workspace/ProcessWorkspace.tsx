@@ -32,7 +32,8 @@ import {
   resumeJob as apiResumeJob, 
   retryJob as apiRetryJob, 
   cancelJob as apiCancelJob,
-  batchUploadFiles as apiBatchUpload
+  batchUploadFiles as apiBatchUpload,
+  matchProcessRoute
 } from '../../services/apiClient';
 
 // --- Visual Step Pipeline Component ---
@@ -557,7 +558,8 @@ export const ProcessWorkspace: React.FC<ProcessWorkspaceProps> = ({
     setIsDrawerOpen(true);
   };
 
-  const relevantJobs = jobs.filter(j => j.processId === route.id);
+  const matchingJobs = jobs.filter(j => matchProcessRoute(j.processId, route.id, j.id, j.fileName));
+  const relevantJobs = matchingJobs.length > 0 ? matchingJobs : jobs;
 
   return (
     <div 
