@@ -11,7 +11,8 @@ $WorkspaceRoot = $null
 if ($PSScriptRoot) {
     if (Test-Path (Join-Path $PSScriptRoot "..\package.json")) {
         $WorkspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-    } elseif (Test-Path (Join-Path $PSScriptRoot "package.json")) {
+    }
+    elseif (Test-Path (Join-Path $PSScriptRoot "package.json")) {
         $WorkspaceRoot = (Resolve-Path $PSScriptRoot).Path
     }
 }
@@ -20,9 +21,11 @@ if (-not $WorkspaceRoot) {
     $current = (Get-Location).Path
     if (Test-Path (Join-Path $current "scripts\cleanup.ps1")) {
         $WorkspaceRoot = $current
-    } elseif (Test-Path (Join-Path $current "..\scripts\cleanup.ps1")) {
+    }
+    elseif (Test-Path (Join-Path $current "..\scripts\cleanup.ps1")) {
         $WorkspaceRoot = (Resolve-Path (Join-Path $current "..")).Path
-    } else {
+    }
+    else {
         $WorkspaceRoot = $current
     }
 }
@@ -45,7 +48,8 @@ function Kill-ProcessTree([int]$targetPid, [string]$label = "") {
             & taskkill.exe /PID $targetPid /T /F 2>$null | Out-Null
             Stop-Process -Id $targetPid -Force -ErrorAction SilentlyContinue
         }
-    } catch {}
+    }
+    catch {}
 }
 
 # -------------------------------------------------------------
@@ -60,7 +64,8 @@ try {
     foreach ($w in $watchdogs) {
         Kill-ProcessTree $w.ProcessId "Watchdog/Runner"
     }
-} catch {}
+}
+catch {}
 
 # -------------------------------------------------------------
 # 3. Kill Processes from PID Files
@@ -74,7 +79,8 @@ foreach ($pf in $pidFiles) {
             if ($savedPid -match '^\d+$') {
                 Kill-ProcessTree ([int]$savedPid) "Saved PID ($pf)"
             }
-        } catch {}
+        }
+        catch {}
         Remove-Item $fullPath -Force -ErrorAction SilentlyContinue
     }
 }
@@ -88,12 +94,13 @@ foreach ($port in $targetPorts) {
     try {
         $connections = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
         foreach ($conn in $connections) {
-            $pId = $conn.OwningProcess
-            if ($pId -gt 0 -and $pId -ne $PID) {
-                Kill-ProcessTree $pId "Port $port listener (Get-NetTCPConnection)"
+            $listenerProcessId = $conn.OwningProcess
+            if ($listenerProcessId -gt 0 -and $listenerProcessId -ne $PID) {
+                Kill-ProcessTree $listenerProcessId "Port $port listener (Get-NetTCPConnection)"
             }
         }
-    } catch {}
+    }
+    catch {}
 
     # Strategy B: netstat -ano fallback (Universal across all Windows versions & permissions)
     try {
@@ -103,14 +110,15 @@ foreach ($port in $targetPorts) {
             if ($parts.Length -ge 5) {
                 $pIdStr = $parts[-1]
                 if ($pIdStr -match '^\d+$') {
-                    $pId = [int]$pIdStr
-                    if ($pId -gt 0 -and $pId -ne $PID) {
-                        Kill-ProcessTree $pId "Port $port listener (netstat)"
+                    $listenerProcessId = [int]$pIdStr
+                    if ($listenerProcessId -gt 0 -and $listenerProcessId -ne $PID) {
+                        Kill-ProcessTree $listenerProcessId "Port $port listener (netstat)"
                     }
                 }
             }
         }
-    } catch {}
+    }
+    catch {}
 }
 
 # -------------------------------------------------------------
@@ -127,7 +135,8 @@ try {
     foreach ($p in $projectProcs) {
         Kill-ProcessTree $p.ProcessId "Lingering project process ($($p.Name))"
     }
-} catch {}
+}
+catch {}
 
 # -------------------------------------------------------------
 # 6. Bring Down Docker Containers
@@ -137,7 +146,8 @@ try {
     Push-Location $WorkspaceRoot
     & docker compose down 2>$null | Out-Null
     Pop-Location
-} catch {}
+}
+catch {}
 
 # -------------------------------------------------------------
 # 7. Clean Up Lockfiles and Temporary Scripts
@@ -161,7 +171,8 @@ foreach ($port in @(5173, 8080)) {
 Write-Host ""
 if ($remainingListeners.Count -gt 0) {
     Write-Host "[WARNING] Active listeners still detected on ports: $($remainingListeners -join ', ')" -ForegroundColor Red
-} else {
+}
+else {
     Write-Host "[SUCCESS] All instances terminated. Ports 5173 and 8080 are completely closed." -ForegroundColor Green
     Write-Host "UI on http://localhost:5173/ is offline." -ForegroundColor Green
 }

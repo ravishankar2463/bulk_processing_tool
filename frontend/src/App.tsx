@@ -500,6 +500,7 @@ export const App: React.FC = () => {
             <button
               onClick={() => {
                 setActiveTab('USER');
+                setActiveWorkspaceRouteId(null);
                 setUserInspectingJobId(null);
               }}
               style={{
@@ -533,7 +534,10 @@ export const App: React.FC = () => {
               )}
             </button>
             <button
-              onClick={() => setActiveTab('ADMIN')}
+              onClick={() => {
+                setActiveTab('ADMIN');
+                setUserInspectingJobId(null);
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -616,101 +620,99 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main style={{ maxWidth: '1200px', margin: '24px auto', padding: '0 24px' }}>
-        {activeWorkspaceRouteId ? (
-          <ProcessWorkspace
-            route={processRoutes.find(r => r.id === activeWorkspaceRouteId) || processRoutes[0]}
-            jobs={(() => {
-              const allJobs = [...processJobs];
-              const seen = new Set(allJobs.map(j => j.id));
-              for (const j of jobs) {
-                if (!seen.has(j.jobId)) {
-                  allJobs.push({
-                    id: j.jobId,
-                    processId: j.processId || activeWorkspaceRouteId,
-                    fileName: j.fileName,
-                    fileSizeBytes: 2048500,
-                    stage: (j.status === 'COMPLETED' ? 'DONE' : 'IN_FLIGHT') as any,
-                    status: (j.status === 'COMPLETED' ? 'COMPLETED' : 'RUNNING') as any,
-                    totalRecords: j.totalRecords,
-                    processedRecords: j.processedRecords,
-                    failedRecords: j.failedRecords,
-                    submittedAt: j.startTime,
-                    checksumSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-                    detectedEncoding: 'UTF-8',
-                    detectedDelimiter: ',',
-                    loomThreadAllocation: 'virtual-worker-101-loom-01'
-                  });
-                  seen.add(j.jobId);
-                }
-              }
-              return allJobs;
-            })()}
-            onBackToCatalog={() => setActiveWorkspaceRouteId(null)}
-            onUpdateStep={(updatedStep) => {
-              setProcessRoutes(prev => prev.map(r => {
-                if (r.id === activeWorkspaceRouteId) {
-                  return {
-                    ...r,
-                    pipelineSteps: r.pipelineSteps.map(s => s.id === updatedStep.id ? updatedStep : s)
-                  };
-                }
-                return r;
-              }));
-            }}
-            onUploadBatch={async (files) => {
-              try {
-                const newJobs = await apiBatchUpload(activeWorkspaceRouteId, files);
-                setProcessJobs(prev => [...newJobs, ...prev]);
-              } catch {
-                // fallback handled
-              }
-            }}
-            onJobAction={async (action, jobId) => {
-              if (action === 'PAUSE') {
-                try { await apiPauseJob(jobId); } catch {}
-                setProcessJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'PAUSED' } : j));
-              } else if (action === 'RESUME') {
-                try { await apiResumeJob(jobId); } catch {}
-                setProcessJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'RUNNING' } : j));
-              } else if (action === 'RETRY') {
-                try { await apiRetryJob(jobId); } catch {}
-                setProcessJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'RUNNING', failedRecords: 0, stage: 'IN_FLIGHT' } : j));
-              } else if (action === 'CANCEL') {
-                try { await apiCancelJob(jobId); } catch {}
-                setProcessJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'FAILED', stage: 'DONE' } : j));
-              } else if (action === 'DOWNLOAD_REPORT') {
-                handleDownloadReport(jobId);
-              }
-            }}
-            onInspectFile={handleInspectDiagnostics}
-          />
-        ) : (
-          <>
-            {/* User Portal View */}
-            {activeTab === 'USER' && (
-              <div>
-                {userInspectingJobId ? (
-                  <UserErrorInspector
-                    jobId={userInspectingJobId}
-                    errors={dlqErrors.filter(e => e.jobId === userInspectingJobId)}
-                    onExportErrorCsv={() => alert(`Exporting failed rows CSV for ${userInspectingJobId}...`)}
-                    onBack={() => setUserInspectingJobId(null)}
-                  />
-                ) : (
-                  <UserDashboard
-                    jobs={jobs}
-                    routes={processRoutes}
-                    onSelectRoute={(routeId) => setActiveWorkspaceRouteId(routeId)}
-                    onDownloadReport={handleDownloadReport}
-                    onUploadNew={() => setActiveModal('UPLOAD')}
-                    onInspectErrors={handleInspectDiagnostics}
-                  />
-                )}
-              </div>
+        {/* User Portal View */}
+        {activeTab === 'USER' && (
+          <div>
+            {activeWorkspaceRouteId ? (
+              <ProcessWorkspace
+                route={processRoutes.find(r => r.id === activeWorkspaceRouteId) || processRoutes[0]}
+                jobs={(() => {
+                  const allJobs = [...processJobs];
+                  const seen = new Set(allJobs.map(j => j.id));
+                  for (const j of jobs) {
+                    if (!seen.has(j.jobId)) {
+                      allJobs.push({
+                        id: j.jobId,
+                        processId: j.processId || activeWorkspaceRouteId,
+                        fileName: j.fileName,
+                        fileSizeBytes: 2048500,
+                        stage: (j.status === 'COMPLETED' ? 'DONE' : 'IN_FLIGHT') as any,
+                        status: (j.status === 'COMPLETED' ? 'COMPLETED' : 'RUNNING') as any,
+                        totalRecords: j.totalRecords,
+                        processedRecords: j.processedRecords,
+                        failedRecords: j.failedRecords,
+                        submittedAt: j.startTime,
+                        checksumSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+                        detectedEncoding: 'UTF-8',
+                        detectedDelimiter: ',',
+                        loomThreadAllocation: 'virtual-worker-101-loom-01'
+                      });
+                      seen.add(j.jobId);
+                    }
+                  }
+                  return allJobs;
+                })()}
+                onBackToCatalog={() => setActiveWorkspaceRouteId(null)}
+                onUpdateStep={(updatedStep) => {
+                  setProcessRoutes(prev => prev.map(r => {
+                    if (r.id === activeWorkspaceRouteId) {
+                      return {
+                        ...r,
+                        pipelineSteps: r.pipelineSteps.map(s => s.id === updatedStep.id ? updatedStep : s)
+                      };
+                    }
+                    return r;
+                  }));
+                }}
+                onUploadBatch={async (files) => {
+                  try {
+                    const newJobs = await apiBatchUpload(activeWorkspaceRouteId, files);
+                    setProcessJobs(prev => [...newJobs, ...prev]);
+                  } catch {
+                    // fallback handled
+                  }
+                }}
+                onJobAction={async (action, jobId) => {
+                  if (action === 'PAUSE') {
+                    try { await apiPauseJob(jobId); } catch {}
+                    setProcessJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'PAUSED' } : j));
+                  } else if (action === 'RESUME') {
+                    try { await apiResumeJob(jobId); } catch {}
+                    setProcessJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'RUNNING' } : j));
+                  } else if (action === 'RETRY') {
+                    try { await apiRetryJob(jobId); } catch {}
+                    setProcessJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'RUNNING', failedRecords: 0, stage: 'IN_FLIGHT' } : j));
+                  } else if (action === 'CANCEL') {
+                    try { await apiCancelJob(jobId); } catch {}
+                    setProcessJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'FAILED', stage: 'DONE' } : j));
+                  } else if (action === 'DOWNLOAD_REPORT') {
+                    handleDownloadReport(jobId);
+                  }
+                }}
+                onInspectFile={handleInspectDiagnostics}
+              />
+            ) : userInspectingJobId ? (
+              <UserErrorInspector
+                jobId={userInspectingJobId}
+                errors={dlqErrors.filter(e => e.jobId === userInspectingJobId)}
+                onExportErrorCsv={() => alert(`Exporting failed rows CSV for ${userInspectingJobId}...`)}
+                onBack={() => setUserInspectingJobId(null)}
+              />
+            ) : (
+              <UserDashboard
+                jobs={jobs}
+                routes={processRoutes}
+                onSelectRoute={(routeId) => setActiveWorkspaceRouteId(routeId)}
+                onDownloadReport={handleDownloadReport}
+                onUploadNew={() => setActiveModal('UPLOAD')}
+                onInspectErrors={handleInspectDiagnostics}
+              />
             )}
+          </div>
+        )}
 
-            {/* Admin Studio View */}
-            {activeTab === 'ADMIN' && (
+        {/* Admin Studio View */}
+        {activeTab === 'ADMIN' && (
               <div>
                 {/* Admin Subtabs & Action Bar */}
                 <div style={{ 
@@ -868,7 +870,10 @@ export const App: React.FC = () => {
                       setEditingRoute(null);
                       setActiveModal('PIPELINE_WIZARD');
                     }}
-                    onViewWorkspace={(routeId) => setActiveWorkspaceRouteId(routeId)}
+                    onViewWorkspace={(routeId) => {
+                      setActiveWorkspaceRouteId(routeId);
+                      setActiveTab('USER');
+                    }}
                     onInspectComponent={(compInstanceId) => {
                       const found = components.find(c => c.instanceId === compInstanceId);
                       if (found) {
@@ -1010,8 +1015,6 @@ export const App: React.FC = () => {
                 )}
               </div>
             )}
-          </>
-        )}
       </main>
 
       {/* File Diagnostics Modal (Tier 3 Slide-Out Drawer) */}
