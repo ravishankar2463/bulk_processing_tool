@@ -92,21 +92,27 @@ export const AdminComponentWizard: React.FC<Props> = ({ onSave, onCancel }) => {
   return (
     <div style={{
       maxWidth: '920px',
+      width: '100%',
+      maxHeight: 'min(90vh, 880px)',
       margin: '0 auto',
       background: '#ffffff',
       borderRadius: '16px',
       border: '1px solid #e2e8f0',
-      boxShadow: '0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.05)',
-      overflow: 'hidden'
+      boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      position: 'relative'
     }}>
       {/* Header with Step Indicator */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '20px 24px',
-        borderBottom: '1px solid #f1f5f9',
-        background: '#f8fafc'
+        padding: '16px 24px',
+        borderBottom: '1px solid #e2e8f0',
+        background: '#f8fafc',
+        flexShrink: 0
       }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -119,12 +125,34 @@ export const AdminComponentWizard: React.FC<Props> = ({ onSave, onCancel }) => {
             Configure new programmable instances for Splitters, Validators, Processors, or Report Writers
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: '#2563eb' }}>
-          Step {step} of 4
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#2563eb' }}>
+            Step {step} of 4
+          </span>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close wizard"
+            title="Close wizard"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              color: '#475569',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            <X size={18} />
+          </button>
         </div>
       </div>
 
-      <div style={{ padding: '24px' }}>
+      <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
         {/* Step 1: Component Type */}
         {step === 1 && (
           <div>

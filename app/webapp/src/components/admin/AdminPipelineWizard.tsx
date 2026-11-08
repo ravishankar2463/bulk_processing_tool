@@ -114,11 +114,15 @@ export const AdminPipelineWizard: React.FC<AdminPipelineWizardProps> = ({
       data-testid="pipeline-wizard-container"
       style={{
         maxWidth: '920px',
+        width: '100%',
+        maxHeight: 'min(90vh, 880px)',
         margin: '0 auto',
         background: '#ffffff',
         borderRadius: '16px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.05)',
+        boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+        display: 'flex',
+        flexDirection: 'column',
         overflow: 'hidden'
       }}
     >
@@ -209,7 +213,7 @@ export const AdminPipelineWizard: React.FC<AdminPipelineWizardProps> = ({
         })}
       </div>
 
-      <div style={{ padding: '24px' }}>
+      <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
         {/* Step 1: Route & Input Format */}
         {step === 1 && (
           <div>

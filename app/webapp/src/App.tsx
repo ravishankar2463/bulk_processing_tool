@@ -695,6 +695,7 @@ export const App: React.FC = () => {
                   setEditingComponent(comp);
                   setActiveModal('EDITOR');
                 }}
+                onCreateComponent={() => setActiveModal('WIZARD')}
               />
             )}
 

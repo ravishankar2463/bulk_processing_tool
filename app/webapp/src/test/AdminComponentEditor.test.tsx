@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { AdminComponentEditor } from '../components/admin/AdminComponentEditor';
@@ -134,5 +134,24 @@ describe('AdminComponentEditor Component', () => {
     fireEvent.click(toggleClassBtn);
     expect(screen.queryByTestId('full-class-preview-surface')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Source Code (Java 21 / Janino)')).toBeInTheDocument();
+  });
+
+  it('renders close X button and invokes onCancel when clicked', () => {
+    const onCancel = vi.fn();
+    render(<AdminComponentEditor initialData={mockComponent} onSave={() => {}} onCancel={onCancel} />);
+
+    const closeBtn = screen.getByRole('button', { name: /close editor/i });
+    expect(closeBtn).toBeInTheDocument();
+
+    fireEvent.click(closeBtn);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('dismisses editor when Escape key is pressed', () => {
+    const onCancel = vi.fn();
+    render(<AdminComponentEditor initialData={mockComponent} onSave={() => {}} onCancel={onCancel} />);
+
+    fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Check, X, ShieldAlert, FileCode, Clock, Cpu, CheckCircle2 } from 'lucide-react';
 import { ComponentInstanceData } from './AdminComponentWizard';
 import { ComponentDocTemplates } from './ComponentDocTemplates';
@@ -38,6 +38,17 @@ export const AdminComponentEditor: React.FC<Props> = ({
   const [sandboxResult, setSandboxResult] = useState<SandboxTestResult | null>(null);
   const [testing, setTesting] = useState<boolean>(false);
 
+  // Keyboard shortcut: Escape to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
   const handleRunSandbox = async () => {
     setTesting(true);
     try {
@@ -75,41 +86,55 @@ export const AdminComponentEditor: React.FC<Props> = ({
   };
 
   return (
-    <div style={{
-      maxWidth: '980px',
-      margin: '0 auto',
-      background: '#ffffff',
-      borderRadius: '16px',
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.05)',
-      overflow: 'hidden'
-    }}>
-      {/* Header */}
+    <div 
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="editor-modal-title"
+      style={{
+        maxWidth: '980px',
+        width: '100%',
+        maxHeight: 'min(90vh, 880px)',
+        margin: '0 auto',
+        background: '#ffffff',
+        borderRadius: '16px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        position: 'relative'
+      }}
+    >
+      {/* Sticky Top Header with Title, Actions, and Prominent Close Button */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '20px 24px',
-        borderBottom: '1px solid #f1f5f9',
-        background: '#f8fafc'
+        padding: '16px 24px',
+        borderBottom: '1px solid #e2e8f0',
+        background: '#f8fafc',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ background: '#0f172a', color: '#60a5fa', padding: '8px', borderRadius: '8px' }}>
             <FileCode size={20} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>Direct Component Editor</h2>
-            <p style={{ margin: '2px 0 0', color: '#64748b', fontSize: '13px' }}>
+            <h2 id="editor-modal-title" style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
+              Direct Component Editor
+            </h2>
+            <p style={{ margin: '2px 0 0', color: '#64748b', fontSize: '12.5px' }}>
               Modify component source code and verify compilation before committing changes
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
             onClick={onCancel}
             style={{
-              padding: '8px 16px',
+              padding: '7px 14px',
               border: '1px solid #cbd5e1',
               background: '#ffffff',
               color: '#334155',
@@ -121,11 +146,12 @@ export const AdminComponentEditor: React.FC<Props> = ({
           >
             Cancel
           </button>
+
           <button
             type="button"
             onClick={handleSave}
             style={{
-              padding: '8px 20px',
+              padding: '7px 18px',
               background: '#2563eb',
               color: '#ffffff',
               border: 'none',
@@ -138,10 +164,33 @@ export const AdminComponentEditor: React.FC<Props> = ({
           >
             Save Changes
           </button>
+
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close editor"
+            title="Close editor (Esc)"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              border: '1px solid #cbd5e1',
+              background: '#f1f5f9',
+              color: '#475569',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              marginLeft: '4px'
+            }}
+          >
+            <X size={18} />
+          </button>
         </div>
       </div>
 
-      <div style={{ padding: '24px' }}>
+      {/* Scrollable Content Body */}
+      <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
         {/* Identifier and Name Inputs */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
           <div>
@@ -298,6 +347,38 @@ export const AdminComponentEditor: React.FC<Props> = ({
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Sticky Bottom Status Bar */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 24px',
+        borderTop: '1px solid #e2e8f0',
+        background: '#f8fafc',
+        flexShrink: 0
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            fontSize: '11.5px',
+            fontFamily: 'var(--font-mono, monospace)',
+            color: '#64748b',
+            background: '#ffffff',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            border: '1px solid #cbd5e1'
+          }}>
+            {instanceId || 'New Component'}
+          </span>
+          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+            • {componentType} (Java 21 Janino)
+          </span>
+        </div>
+
+        <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>
+          Press <kbd style={{ padding: '1px 5px', background: '#e2e8f0', borderRadius: '4px', fontSize: '11px', color: '#334155' }}>Esc</kbd> to close
         </div>
       </div>
     </div>

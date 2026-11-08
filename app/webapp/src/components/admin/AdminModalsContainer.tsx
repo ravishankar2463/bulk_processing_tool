@@ -34,20 +34,29 @@ export const AdminModalsContainer: React.FC<AdminModalsContainerProps> = ({
 
   return (
     <div
+      onClick={onCloseModal}
       style={{
         position: 'fixed',
         inset: 0,
         background: 'rgba(15, 23, 42, 0.65)',
         backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: '24px',
+        padding: '24px 16px',
         zIndex: 1000,
         overflowY: 'auto'
       }}
     >
-      <div style={{ width: '100%', maxWidth: activeModal === 'UPLOAD' ? '680px' : '960px' }}>
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        style={{ 
+          width: '100%', 
+          maxWidth: activeModal === 'UPLOAD' ? '680px' : '980px',
+          margin: 'auto 0'
+        }}
+      >
         {activeModal === 'WIZARD' && (
           <AdminComponentWizard
             onSave={onSaveComponent}
