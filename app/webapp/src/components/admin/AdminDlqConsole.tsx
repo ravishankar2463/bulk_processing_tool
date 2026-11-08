@@ -194,12 +194,14 @@ export const AdminDlqConsole: React.FC<Props> = ({
               </tr>
             </thead>
             <tbody>
-              {filteredErrors.map((err) => {
-                const comp = compressWithHeadroom(err.rawPayload);
-                const displayPayload = useHeadroomCompression ? comp.compressedText : err.rawPayload;
+              {filteredErrors.map((err, index) => {
+                const displayPayload = useHeadroomCompression
+                  ? compressWithHeadroom(err.rawPayload).compressedText
+                  : err.rawPayload;
+                const rowKey = `${err.jobId}-${err.errorId}-${err.sequenceNumber ?? index}`;
 
                 return (
-                  <tr key={err.errorId} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                  <tr key={rowKey} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
                     <td style={{ padding: '14px 18px' }}>
                       <div style={{ fontWeight: 700, color: 'var(--text-main, #0f172a)' }}>#{err.errorId}</div>
                       {onInspectJob ? (

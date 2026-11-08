@@ -1,33 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Layers, 
-  Cpu, 
-  Activity, 
-  Settings, 
-  Plus, 
-  Code2, 
-  AlertOctagon, 
   GitMerge,
-  Server,
-  Zap,
-  Sun,
-  Moon,
-  ChevronRight,
-  Home,
-  CheckCircle2,
-  FileSpreadsheet,
-  Workflow
+  Plus,
+  Code2,
+  AlertOctagon
 } from 'lucide-react';
 import { UserDashboard, UserJob } from './components/user/UserDashboard';
-import { UserUpload } from './components/user/UserUpload';
 import { UserErrorInspector } from './components/user/UserErrorInspector';
 import { AdminRouteStudio, RouteConfigData } from './components/admin/AdminRouteStudio';
-import { AdminComponentWizard, ComponentInstanceData } from './components/admin/AdminComponentWizard';
-import { AdminComponentEditor } from './components/admin/AdminComponentEditor';
+import { ComponentInstanceData } from './components/admin/AdminComponentWizard';
 import { AdminDlqConsole, DlqErrorItem } from './components/admin/AdminDlqConsole';
-import { AdminPipelineWizard, PipelineDefinitionData } from './components/admin/AdminPipelineWizard';
+import { PipelineDefinitionData } from './components/admin/AdminPipelineWizard';
 import { ProcessWorkspace } from './components/workspace/ProcessWorkspace';
 import { FileDiagnosticsModal } from './components/diagnostics/FileDiagnosticsModal';
+import { AppHeader } from './components/navigation/AppHeader';
+import { PortalBreadcrumbs } from './components/navigation/PortalBreadcrumbs';
+import { AdminModalsContainer } from './components/admin/AdminModalsContainer';
+import { AdminComponentLibrary } from './components/admin/AdminComponentLibrary';
 import { ProcessRoute, FileExecutionJob, FileDiagnosticsData } from './types/process';
 import { 
   fetchCatalogRoutes, 
@@ -99,60 +88,84 @@ export const App: React.FC = () => {
       jobId: 'job-102',
       fileName: 'orders.csv',
       status: 'COMPLETED',
-      totalRecords: 500,
-      processedRecords: 500,
-      successfulRecords: 500,
+      totalRecords: 5000,
+      processedRecords: 5000,
+      successfulRecords: 5000,
       failedRecords: 0,
       startTime: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+      jobId: 'job-103',
+      fileName: 'transactions.csv',
+      status: 'FAILED',
+      totalRecords: 1200,
+      processedRecords: 450,
+      successfulRecords: 400,
+      failedRecords: 50,
+      startTime: new Date(Date.now() - 7200000).toISOString()
     }
   ]);
 
   // DLQ Errors State
   const [dlqErrors, setDlqErrors] = useState<DlqErrorItem[]>([
     {
-      errorId: 101,
+      errorId: 2041,
       jobId: 'job-101',
-      sequenceNumber: 42,
+      batchId: 'batch-001',
+      sequenceNumber: 14,
       stepName: 'DYNAMIC_VALIDATOR',
-      errorCode: 'MISSING_EMAIL',
-      errorMessage: 'Email is required on customer record',
-      rawPayload: '{"id": 42, "name": "John Doe", "email": ""}'
+      errorCode: 'INVALID_EMAIL_SYNTAX',
+      errorMessage: 'Email fails RFC 5322 syntax regex',
+      rawPayload: '{"id": 14, "email": "bad-user@tempmail.com"}'
     },
     {
-      errorId: 102,
-      jobId: 'job-101',
-      sequenceNumber: 156,
+      errorId: 2042,
+      jobId: 'job-103',
+      batchId: 'batch-002',
+      sequenceNumber: 99,
       stepName: 'DYNAMIC_VALIDATOR',
-      errorCode: 'INVALID_DOMAIN',
-      errorMessage: 'Domain @tempmail.com is rejected by corporate policy',
-      rawPayload: '{"id": 156, "name": "Fake User", "email": "fake@tempmail.com"}'
+      errorCode: 'INVALID_AMOUNT',
+      errorMessage: 'Amount cannot be negative (-45.00)',
+      rawPayload: '{"id": 99, "amount": -45.00}'
     }
   ]);
 
   // Admin Studio State
   const [routes, setRoutes] = useState<RouteConfigData[]>([
     {
-      routeId: 'csv-customer-ingest',
-      name: 'Customer CSV Ingestion Pipeline',
+      routeId: 'customer-master-onboarding',
+      name: 'Customer Master Onboarding',
       status: 'ACTIVE',
-      sourceEndpoint: 'file://data/inbox?include=.*\\.csv',
+      sourceEndpoint: 'file://data/inbox/customer-master-onboarding?include=.*\\.csv',
       splitterInstanceId: 'splitter-csv-univocity',
       validatorInstanceId: 'val-kyc-01',
       processorInstanceId: 'proc-customer-enricher',
-      writerInstanceId: 'writer-json-s3',
+      writerInstanceId: 'writer-audit-csv',
       batchSize: 500,
       parallelConsumers: 8
     },
     {
-      routeId: 'csv-order-stream',
-      name: 'Order Processing Stream',
-      status: 'PAUSED',
-      sourceEndpoint: 'kafka:orders.incoming',
-      splitterInstanceId: 'splitter-default',
+      routeId: 'order-fulfillment-stream',
+      name: 'Order Fulfillment Stream',
+      status: 'ACTIVE',
+      sourceEndpoint: 'file://data/inbox/order-fulfillment-stream?include=.*\\.csv',
+      splitterInstanceId: 'splitter-csv-univocity',
       validatorInstanceId: 'val-order-schema',
       processorInstanceId: 'proc-tax-calc',
-      writerInstanceId: 'writer-db-upsert',
-      batchSize: 200,
+      writerInstanceId: 'writer-audit-csv',
+      batchSize: 250,
+      parallelConsumers: 16
+    },
+    {
+      routeId: 'financial-reconciliation',
+      name: 'Financial Reconciliation',
+      status: 'PAUSED',
+      sourceEndpoint: 'file://data/inbox/financial-reconciliation?include=.*\\.csv',
+      splitterInstanceId: 'splitter-csv-univocity',
+      validatorInstanceId: 'val-order-schema',
+      processorInstanceId: 'proc-tax-calc',
+      writerInstanceId: 'writer-audit-csv',
+      batchSize: 1000,
       parallelConsumers: 4
     }
   ]);
@@ -177,6 +190,16 @@ export const App: React.FC = () => {
       language: 'JAVA',
       sourceCode: '// Java 21 Batch Processor Script\njava.util.Map result = new java.util.HashMap(record);\nresult.put("tier", "GOLD");\nreturn result;',
       sampleTestPayload: '{"id": 101, "spend": 5000}'
+    },
+    {
+      instanceId: 'splitter-csv-univocity',
+      componentType: 'SPLITTER',
+      name: 'Streaming CSV Splitter',
+      description: 'Univocity streaming CSV parser with virtual thread chunking and zero-copy buffering',
+      executionMode: 'CODE_SNIPPET',
+      language: 'JAVA',
+      sourceCode: '// Univocity CSV Splitter\npublic List<Record> split(InputStream in, int chunkSize) {\n    return UnivocityParser.parseChunks(in, chunkSize, \',\');\n}',
+      sampleTestPayload: '{"chunkSize": 500, "delimiter": ",", "hasHeader": true}'
     }
   ]);
 
@@ -394,229 +417,35 @@ export const App: React.FC = () => {
 
   return (
     <div className={theme === 'dark' ? 'theme-dark' : ''} style={{ minHeight: '100vh', background: 'var(--bg-app, #f8fafc)', color: 'var(--text-main, #0f172a)' }}>
-      {/* Top Telemetry & Health Bar with Theme Toggle */}
-      <div style={{ 
-        background: '#090d16', 
-        borderBottom: '1px solid #1e293b', 
-        padding: '6px 24px', 
-        fontSize: '11px', 
-        color: '#94a3b8' 
-      }}>
-        <div style={{ 
-          maxWidth: '1200px', 
-          margin: '0 auto', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span className="pulsing-dot" style={{ background: '#10b981' }} />
-              Camel Context: <strong style={{ color: '#f8fafc' }}>RUNNING</strong>
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Cpu size={12} color="#60a5fa" />
-              Loom Virtual Threads: <strong style={{ color: '#f8fafc' }}>ACTIVE (O(1) RAM)</strong>
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Server size={12} color="#a78bfa" />
-              Kafka Ingress: <strong style={{ color: '#f8fafc' }}>CONNECTED</strong>
-            </span>
-          </div>
+      {/* Extracted Header & Telemetry Bar */}
+      <AppHeader
+        theme={theme}
+        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'USER') {
+            setActiveWorkspaceRouteId(null);
+          }
+          setUserInspectingJobId(null);
+        }}
+        activeProcessingCount={activeProcessingCount}
+        dlqErrorCount={dlqErrors.length}
+      />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span className="headroom-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <Zap size={11} /> Headroom Token Optimizer Active (-74%)
-            </span>
-
-            {/* Liquid Glass Dual-Theme Toggle */}
-            <button
-              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-              aria-label="Toggle Liquid Glass Theme"
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#f8fafc',
-                padding: '3px 9px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              {theme === 'dark' ? <Sun size={12} color="#fbbf24" /> : <Moon size={12} color="#60a5fa" />}
-              {theme === 'dark' ? 'Light Frost' : 'Dark Glass'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Navigation Header */}
-      <header style={{ 
-        background: '#0f172a', 
-        color: '#ffffff', 
-        padding: '0 24px', 
-        borderBottom: '1px solid #1e293b',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ 
-          maxWidth: '1200px', 
-          margin: '0 auto', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          height: '68px' 
-        }}>
-          {/* Logo and Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', 
-              padding: '9px', 
-              borderRadius: '10px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(37,99,235,0.35)'
-            }}>
-              <Layers size={22} color="#ffffff" />
-            </div>
-            <div>
-              <h1 style={{ fontSize: '18px', fontWeight: 700, margin: 0, letterSpacing: '-0.02em', color: '#ffffff' }}>
-                Enterprise Bulk Processor
-              </h1>
-              <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                Java 21 Project Loom · Apache Camel · Kafka
-              </span>
-            </div>
-          </div>
-
-          {/* Main Portal Switcher */}
-          <div style={{ display: 'flex', gap: '6px', background: '#1e293b', padding: '4px', borderRadius: '10px' }}>
-            <button
-              onClick={() => {
-                setActiveTab('USER');
-                setActiveWorkspaceRouteId(null);
-                setUserInspectingJobId(null);
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 18px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: activeTab === 'USER' ? '#2563eb' : 'transparent',
-                color: activeTab === 'USER' ? '#ffffff' : '#94a3b8',
-                border: 'none',
-                boxShadow: activeTab === 'USER' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none'
-              }}
-            >
-              <Activity size={15} />
-              User Portal
-              {activeProcessingCount > 0 && (
-                <span style={{ 
-                  background: activeTab === 'USER' ? '#ffffff' : '#2563eb', 
-                  color: activeTab === 'USER' ? '#1d4ed8' : '#ffffff', 
-                  fontSize: '10px', 
-                  padding: '1px 6px', 
-                  borderRadius: '999px',
-                  fontWeight: 700 
-                }}>
-                  {activeProcessingCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('ADMIN');
-                setUserInspectingJobId(null);
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 18px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: activeTab === 'ADMIN' ? '#2563eb' : 'transparent',
-                color: activeTab === 'ADMIN' ? '#ffffff' : '#94a3b8',
-                border: 'none',
-                boxShadow: activeTab === 'ADMIN' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none'
-              }}
-            >
-              <Settings size={15} />
-              Admin Studio
-              {dlqErrors.length > 0 && (
-                <span style={{ 
-                  background: '#dc2626', 
-                  color: '#ffffff', 
-                  fontSize: '10px', 
-                  padding: '1px 6px', 
-                  borderRadius: '999px',
-                  fontWeight: 700 
-                }}>
-                  {dlqErrors.length}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Breadcrumb Navigation Trail */}
-      <div style={{ background: 'var(--bg-card-subtle, #f1f5f9)', borderBottom: '1px solid var(--glass-border, #e2e8f0)', padding: '8px 24px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
-          <button 
-            onClick={() => { setActiveTab('USER'); setActiveWorkspaceRouteId(null); setUserInspectingJobId(null); }}
-            style={{ background: 'none', border: 'none', color: 'inherit', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-          >
-            <Home size={13} /> Home
-          </button>
-          <ChevronRight size={12} />
-          {activeTab === 'USER' ? (
-            <>
-              <button 
-                onClick={() => setActiveWorkspaceRouteId(null)}
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  color: activeWorkspaceRouteId ? 'var(--primary, #2563eb)' : 'var(--text-main, #0f172a)', 
-                  fontWeight: activeWorkspaceRouteId ? 500 : 700, 
-                  padding: 0, 
-                  cursor: 'pointer' 
-                }}
-              >
-                Route Catalog
-              </button>
-              {activeWorkspaceRouteId && (
-                <>
-                  <ChevronRight size={12} />
-                  <span style={{ color: 'var(--text-main, #0f172a)', fontWeight: 700 }}>
-                    {activeRoute ? activeRoute.name : activeWorkspaceRouteId} (Workspace)
-                  </span>
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              <span style={{ color: 'var(--text-main, #0f172a)', fontWeight: 700 }}>Admin Studio</span>
-              <ChevronRight size={12} />
-              <span style={{ color: 'var(--primary, #2563eb)', fontWeight: 600 }}>
-                {adminSubTab === 'ROUTES' ? 'Dynamic Route Studio' : adminSubTab === 'COMPONENTS' ? 'Component Library' : 'Dead Letter Queue'}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
+      {/* Extracted Breadcrumb Navigation Trail */}
+      <PortalBreadcrumbs
+        activeTab={activeTab}
+        activeWorkspaceRouteId={activeWorkspaceRouteId}
+        activeRouteName={activeRoute?.name}
+        adminSubTab={adminSubTab}
+        onNavigateHome={() => {
+          setActiveTab('USER');
+          setActiveWorkspaceRouteId(null);
+          setUserInspectingJobId(null);
+        }}
+        onNavigateRouteCatalog={() => setActiveWorkspaceRouteId(null)}
+      />
 
       {/* Main Content Area */}
       <main style={{ maxWidth: '1200px', margin: '24px auto', padding: '0 24px' }}>
@@ -713,308 +542,173 @@ export const App: React.FC = () => {
 
         {/* Admin Studio View */}
         {activeTab === 'ADMIN' && (
-              <div>
-                {/* Admin Subtabs & Action Bar */}
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
-                  marginBottom: '24px', 
-                  borderBottom: '1px solid var(--glass-border, #e2e8f0)', 
-                  paddingBottom: '14px',
-                  flexWrap: 'wrap',
-                  gap: '12px'
-                }}>
-                  <div style={{ display: 'flex', gap: '24px' }}>
-                    <button
-                      onClick={() => setAdminSubTab('ROUTES')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: '8px 0',
-                        fontSize: '15px',
-                        fontWeight: adminSubTab === 'ROUTES' ? 700 : 500,
-                        color: adminSubTab === 'ROUTES' ? 'var(--primary, #2563eb)' : 'var(--text-muted, #64748b)',
-                        borderBottom: adminSubTab === 'ROUTES' ? '2px solid var(--primary, #2563eb)' : '2px solid transparent',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <GitMerge size={16} /> Dynamic Route Studio
-                    </button>
-                    <button
-                      onClick={() => setAdminSubTab('COMPONENTS')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: '8px 0',
-                        fontSize: '15px',
-                        fontWeight: adminSubTab === 'COMPONENTS' ? 700 : 500,
-                        color: adminSubTab === 'COMPONENTS' ? 'var(--primary, #2563eb)' : 'var(--text-muted, #64748b)',
-                        borderBottom: adminSubTab === 'COMPONENTS' ? '2px solid var(--primary, #2563eb)' : '2px solid transparent',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <Code2 size={16} /> Component Library
-                    </button>
-                    <button
-                      onClick={() => setAdminSubTab('DLQ')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: '8px 0',
-                        fontSize: '15px',
-                        fontWeight: adminSubTab === 'DLQ' ? 700 : 500,
-                        color: adminSubTab === 'DLQ' ? 'var(--primary, #2563eb)' : 'var(--text-muted, #64748b)',
-                        borderBottom: adminSubTab === 'DLQ' ? '2px solid var(--primary, #2563eb)' : '2px solid transparent',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <AlertOctagon size={16} /> DLQ Error Console
-                    </button>
-                  </div>
-
-                  {adminSubTab === 'COMPONENTS' && (
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button
-                        onClick={() => {
-                          setEditingComponent(undefined);
-                          setActiveModal('WIZARD');
-                        }}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '8px 16px',
-                          background: 'var(--primary, #2563eb)',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          boxShadow: '0 2px 4px rgba(37,99,235,0.2)'
-                        }}
-                      >
-                        <Plus size={14} /> New Component Wizard
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingComponent(undefined);
-                          setActiveModal('EDITOR');
-                        }}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '8px 16px',
-                          background: 'var(--bg-card, #ffffff)',
-                          color: 'var(--text-main, #0f172a)',
-                          border: '1px solid var(--border-subtle, #cbd5e1)',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          fontWeight: 500,
-                          cursor: 'pointer',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
-                        }}
-                      >
-                        <Code2 size={14} /> Direct Code Editor
-                      </button>
-                    </div>
-                  )}
-
-                  {adminSubTab === 'ROUTES' && (
-                    <button
-                      onClick={() => {
-                        setEditingRoute(null);
-                        setActiveModal('PIPELINE_WIZARD');
-                      }}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 16px',
-                        background: 'var(--primary, #2563eb)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(37,99,235,0.2)'
-                      }}
-                    >
-                      <GitMerge size={14} /> Assemble Pipeline Wizard
-                    </button>
-                  )}
-                </div>
-
-                {/* Dynamic Route Studio */}
-                {adminSubTab === 'ROUTES' && (
-                  <AdminRouteStudio
-                    routes={routes}
-                    onToggleStatus={handleToggleRoute}
-                    onEditRoute={(route) => {
-                      setEditingRoute(route);
-                      setActiveModal('PIPELINE_WIZARD');
-                    }}
-                    onCreateRoute={() => {
-                      setEditingRoute(null);
-                      setActiveModal('PIPELINE_WIZARD');
-                    }}
-                    onViewWorkspace={(routeId) => {
-                      setActiveWorkspaceRouteId(routeId);
-                      setActiveTab('USER');
-                    }}
-                    onInspectComponent={(compInstanceId) => {
-                      const found = components.find(c => c.instanceId === compInstanceId);
-                      if (found) {
-                        setEditingComponent(found);
-                        setActiveModal('EDITOR');
-                      }
-                    }}
-                  />
-                )}
-
-                {/* Component Library Cards with Process Linkage */}
-                {adminSubTab === 'COMPONENTS' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '18px' }}>
-                    {components.map((comp) => {
-                      const referencingRoutes = routes.filter(r => 
-                        r.splitterInstanceId === comp.instanceId ||
-                        r.validatorInstanceId === comp.instanceId ||
-                        r.processorInstanceId === comp.instanceId ||
-                        r.writerInstanceId === comp.instanceId
-                      );
-
-                      return (
-                        <div
-                          key={comp.instanceId}
-                          className="liquid-glass-card"
-                          style={{
-                            background: 'var(--glass-card, #ffffff)',
-                            border: '1px solid var(--glass-border, #e2e8f0)',
-                            borderRadius: '14px',
-                            padding: '20px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            boxShadow: 'var(--shadow-card, 0 1px 3px rgba(15,23,42,0.04))',
-                            transition: 'all 0.2s ease-in-out'
-                          }}
-                        >
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                              <span style={{ 
-                                fontSize: '11px', 
-                                fontWeight: 700, 
-                                padding: '3px 8px', 
-                                borderRadius: '6px', 
-                                background: 'var(--primary-light, #eff6ff)', 
-                                color: 'var(--primary, #1d4ed8)',
-                                border: '1px solid var(--border-subtle, #bfdbfe)'
-                              }}>
-                                {comp.componentType}
-                              </span>
-                              <span style={{ 
-                                fontSize: '11px', 
-                                fontWeight: 600,
-                                color: 'var(--text-muted, #475569)', 
-                                background: 'var(--bg-card-subtle, #f1f5f9)', 
-                                padding: '2px 7px', 
-                                borderRadius: '4px' 
-                              }}>
-                                {comp.language} 21
-                              </span>
-                            </div>
-                            <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 700, color: 'var(--text-main, #0f172a)' }}>
-                              {comp.name}
-                            </h4>
-                            <p style={{ margin: '0 0 12px', fontSize: '13px', color: 'var(--text-muted, #64748b)', lineHeight: 1.4 }}>
-                              {comp.description}
-                            </p>
-
-                            {/* Process Linkage Indicator */}
-                            <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <span style={{ 
-                                fontSize: '11px', 
-                                fontWeight: 600, 
-                                padding: '2px 8px', 
-                                borderRadius: '999px',
-                                background: referencingRoutes.length > 0 ? 'var(--success-bg, #ecfdf5)' : 'var(--bg-card-subtle, #f1f5f9)',
-                                color: referencingRoutes.length > 0 ? 'var(--success-text, #065f46)' : 'var(--text-muted, #64748b)',
-                                border: `1px solid ${referencingRoutes.length > 0 ? 'var(--success-border, #a7f3d0)' : 'var(--border-subtle, #e2e8f0)'}`
-                              }}>
-                                Used in {referencingRoutes.length} route(s)
-                              </span>
-                              {referencingRoutes.map(r => (
-                                <span key={r.routeId} style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                                  {r.routeId}
-                                </span>
-                              ))}
-                            </div>
-
-                            <pre style={{ 
-                              margin: 0, 
-                              padding: '10px 12px', 
-                              background: '#090d16', 
-                              color: '#94a3b8', 
-                              borderRadius: '8px', 
-                              fontSize: '11px', 
-                              fontFamily: 'var(--font-mono)',
-                              overflowX: 'auto', 
-                              maxHeight: '75px',
-                              border: '1px solid #1e293b'
-                            }}>
-                              {comp.sourceCode}
-                            </pre>
-                          </div>
-
-                          <div style={{ marginTop: '18px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                            <button
-                              onClick={() => {
-                                setEditingComponent(comp);
-                                setActiveModal('EDITOR');
-                              }}
-                              style={{ 
-                                padding: '6px 14px', 
-                                border: '1px solid var(--border-subtle, #cbd5e1)', 
-                                background: 'var(--bg-card, #ffffff)', 
-                                color: 'var(--text-main, #0f172a)',
-                                borderRadius: '6px', 
-                                fontSize: '12px', 
-                                fontWeight: 500,
-                                cursor: 'pointer' 
-                              }}
-                            >
-                              Edit Code
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* DLQ Error Console with Job Diagnostic Link */}
-                {adminSubTab === 'DLQ' && (
-                  <AdminDlqConsole
-                    errors={dlqErrors}
-                    onResubmit={handleResubmitDlq}
-                    onRefresh={() => {}}
-                    onInspectJob={handleInspectDiagnostics}
-                  />
-                )}
+          <div>
+            {/* Admin Subtabs & Action Bar */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '24px', 
+              borderBottom: '1px solid var(--glass-border, #e2e8f0)', 
+              paddingBottom: '14px',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', gap: '24px' }}>
+                <button
+                  onClick={() => setAdminSubTab('ROUTES')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px 0',
+                    fontSize: '15px',
+                    fontWeight: adminSubTab === 'ROUTES' ? 700 : 500,
+                    color: adminSubTab === 'ROUTES' ? 'var(--primary, #2563eb)' : 'var(--text-muted, #64748b)',
+                    borderBottom: adminSubTab === 'ROUTES' ? '2px solid var(--primary, #2563eb)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <GitMerge size={16} /> Dynamic Route Studio
+                </button>
+                <button
+                  onClick={() => setAdminSubTab('COMPONENTS')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px 0',
+                    fontSize: '15px',
+                    fontWeight: adminSubTab === 'COMPONENTS' ? 700 : 500,
+                    color: adminSubTab === 'COMPONENTS' ? 'var(--primary, #2563eb)' : 'var(--text-muted, #64748b)',
+                    borderBottom: adminSubTab === 'COMPONENTS' ? '2px solid var(--primary, #2563eb)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Code2 size={16} /> Component Library
+                </button>
+                <button
+                  onClick={() => setAdminSubTab('DLQ')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px 0',
+                    fontSize: '15px',
+                    fontWeight: adminSubTab === 'DLQ' ? 700 : 500,
+                    color: adminSubTab === 'DLQ' ? 'var(--primary, #2563eb)' : 'var(--text-muted, #64748b)',
+                    borderBottom: adminSubTab === 'DLQ' ? '2px solid var(--primary, #2563eb)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <AlertOctagon size={16} /> DLQ Error Console
+                </button>
               </div>
+
+              {adminSubTab === 'COMPONENTS' && (
+                <button
+                  onClick={() => setActiveModal('WIZARD')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    background: 'var(--primary, #2563eb)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(37,99,235,0.2)'
+                  }}
+                >
+                  <Plus size={14} /> New Component
+                </button>
+              )}
+
+              {adminSubTab === 'ROUTES' && (
+                <button
+                  onClick={() => {
+                    setEditingRoute(null);
+                    setActiveModal('PIPELINE_WIZARD');
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    background: 'var(--primary, #2563eb)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(37,99,235,0.2)'
+                  }}
+                >
+                  <GitMerge size={14} /> Assemble Pipeline Wizard
+                </button>
+              )}
+            </div>
+
+            {/* Dynamic Route Studio */}
+            {adminSubTab === 'ROUTES' && (
+              <AdminRouteStudio
+                routes={routes}
+                onToggleStatus={handleToggleRoute}
+                onEditRoute={(route) => {
+                  setEditingRoute(route);
+                  setActiveModal('PIPELINE_WIZARD');
+                }}
+                onCreateRoute={() => {
+                  setEditingRoute(null);
+                  setActiveModal('PIPELINE_WIZARD');
+                }}
+                onViewWorkspace={(routeId) => {
+                  setActiveWorkspaceRouteId(routeId);
+                  setActiveTab('USER');
+                }}
+                onInspectComponent={(compInstanceId) => {
+                  const found = components.find(c => c.instanceId === compInstanceId);
+                  if (found) {
+                    setEditingComponent(found);
+                    setActiveModal('EDITOR');
+                  }
+                }}
+              />
             )}
+
+            {/* Component Library Cards with Process Linkage */}
+            {adminSubTab === 'COMPONENTS' && (
+              <AdminComponentLibrary
+                components={components}
+                routes={routes}
+                onEditComponent={(comp) => {
+                  setEditingComponent(comp);
+                  setActiveModal('EDITOR');
+                }}
+              />
+            )}
+
+            {/* DLQ Error Console with Job Diagnostic Link */}
+            {adminSubTab === 'DLQ' && (
+              <AdminDlqConsole
+                errors={dlqErrors}
+                onResubmit={handleResubmitDlq}
+                onRefresh={() => {}}
+                onInspectJob={handleInspectDiagnostics}
+              />
+            )}
+          </div>
+        )}
       </main>
 
       {/* File Diagnostics Modal (Tier 3 Slide-Out Drawer) */}
@@ -1028,59 +722,19 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* Modal Dialog Overlays */}
-      {activeModal !== 'NONE' && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '24px',
-            zIndex: 1000,
-            overflowY: 'auto'
-          }}
-        >
-          <div style={{ width: '100%', maxWidth: activeModal === 'UPLOAD' ? '680px' : '960px' }}>
-            {activeModal === 'WIZARD' && (
-              <AdminComponentWizard
-                onSave={handleSaveComponent}
-                onCancel={() => setActiveModal('NONE')}
-              />
-            )}
-            {activeModal === 'EDITOR' && (
-              <AdminComponentEditor
-                initialData={editingComponent}
-                onSave={handleSaveComponent}
-                onCancel={() => {
-                  setActiveModal('NONE');
-                  setEditingComponent(undefined);
-                }}
-              />
-            )}
-            {activeModal === 'UPLOAD' && (
-              <UserUpload
-                availableRoutes={routes.map(r => ({ routeId: r.routeId, name: r.name }))}
-                onUpload={handleUploadSubmit}
-                onCancel={() => setActiveModal('NONE')}
-              />
-            )}
-            {activeModal === 'PIPELINE_WIZARD' && (
-              <AdminPipelineWizard
-                initialData={editingRoute}
-                onSave={handleSavePipeline}
-                onCancel={() => {
-                  setActiveModal('NONE');
-                  setEditingRoute(null);
-                }}
-              />
-            )}
-          </div>
-        </div>
-      )}
+      {/* Extracted Modal Dialog Overlays Container */}
+      <AdminModalsContainer
+        activeModal={activeModal}
+        editingComponent={editingComponent}
+        editingRoute={editingRoute}
+        routes={routes}
+        onSaveComponent={handleSaveComponent}
+        onSavePipeline={handleSavePipeline}
+        onUploadSubmit={handleUploadSubmit}
+        onCloseModal={() => setActiveModal('NONE')}
+        onClearEditingComponent={() => setEditingComponent(undefined)}
+        onClearEditingRoute={() => setEditingRoute(null)}
+      />
     </div>
   );
 };

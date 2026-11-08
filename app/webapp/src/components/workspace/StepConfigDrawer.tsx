@@ -29,6 +29,18 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
     }
   }, [step]);
 
+  // Keyboard accessibility: dismiss on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !step) return null;
 
   const handleSave = () => {
@@ -52,25 +64,41 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
   };
 
   return (
-    <div
-      data-testid="step-config-drawer"
-      style={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        width: '460px',
-        maxWidth: '90vw',
-        height: '100vh',
-        background: '#ffffff',
-        borderLeft: '1px solid #cbd5e1',
-        boxShadow: 'var(--shadow-modal, -4px 0 24px rgba(15, 23, 42, 0.15))',
-        zIndex: 1100,
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '24px',
-        overflowY: 'auto'
-      }}
-    >
+    <>
+      <div
+        data-testid="step-config-drawer-backdrop"
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'var(--bg-overlay, rgba(15, 23, 42, 0.5))',
+          backdropFilter: 'blur(2px)',
+          zIndex: 1099,
+          transition: 'opacity 0.2s ease-in-out'
+        }}
+      />
+      <div
+        data-testid="step-config-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="step-config-drawer-title"
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          width: '460px',
+          maxWidth: '90vw',
+          height: '100vh',
+          background: 'var(--glass-card, #ffffff)',
+          borderLeft: '1px solid var(--glass-border, #cbd5e1)',
+          boxShadow: 'var(--shadow-modal, -4px 0 24px rgba(15, 23, 42, 0.15))',
+          zIndex: 1100,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '24px',
+          overflowY: 'auto'
+        }}
+      >
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
         <div>
@@ -109,11 +137,11 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
       {/* Configuration Form Controls */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* Error Handling Policy */}
-        <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '6px' }}>
+        <div style={{ background: 'var(--bg-card-subtle, #f8fafc)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-subtle, #e2e8f0)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #0f172a)', marginBottom: '6px' }}>
             <ShieldAlert size={14} color="#dc2626" /> Error Handling Policy
           </label>
-          <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748b' }}>
+          <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
             Determine whether batch aborts on bad records or routes to the Dead Letter Queue.
           </p>
           <select
@@ -124,10 +152,10 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
               width: '100%',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
+              border: '1px solid var(--border-subtle, #cbd5e1)',
+              background: 'var(--glass-input, #ffffff)',
               fontSize: '13px',
-              color: '#0f172a',
+              color: 'var(--text-main, #0f172a)',
               fontWeight: 500
             }}
           >
@@ -137,16 +165,16 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
         </div>
 
         {/* Loom Concurrency Allocation */}
-        <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div style={{ background: 'var(--bg-card-subtle, #f8fafc)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-subtle, #e2e8f0)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #0f172a)' }}>
               <Cpu size={14} color="#2563eb" /> Loom Concurrency Allocation (Virtual Threads)
             </label>
             <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: '#2563eb' }}>
               {concurrency} threads
             </span>
           </div>
-          <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748b' }}>
+          <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
             Java 21 Project Loom virtual thread partition factor (1 - 256 virtual workers).
           </p>
           <input
@@ -160,25 +188,25 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
               width: '100%',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
+              border: '1px solid var(--border-subtle, #cbd5e1)',
+              background: 'var(--glass-input, #ffffff)',
               fontSize: '13px',
-              color: '#0f172a'
+              color: 'var(--text-main, #0f172a)'
             }}
           />
         </div>
 
         {/* Batch Chunk Size */}
-        <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div style={{ background: 'var(--bg-card-subtle, #f8fafc)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-subtle, #e2e8f0)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #0f172a)' }}>
               <Database size={14} color="#059669" /> Batch Chunk Size (records)
             </label>
             <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: '#059669' }}>
               {paramBatchSize.toLocaleString()} rec
             </span>
           </div>
-          <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748b' }}>
+          <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
             Number of parsed records processed in each streaming sub-batch chunk.
           </p>
           <input
@@ -191,33 +219,33 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
               width: '100%',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
+              border: '1px solid var(--border-subtle, #cbd5e1)',
+              background: 'var(--glass-input, #ffffff)',
               fontSize: '13px',
-              color: '#0f172a'
+              color: 'var(--text-main, #0f172a)'
             }}
           />
         </div>
 
         {/* Field Mappings */}
         <div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #0f172a)', marginBottom: '8px' }}>
             <Sliders size={14} color="#7c3aed" /> Field Mappings ({step.fieldMappings.length})
           </label>
           <div
             data-testid="drawer-field-mappings-list"
             style={{
-              background: '#f8fafc',
+              background: 'var(--bg-card-subtle, #f8fafc)',
               padding: '12px',
               borderRadius: '8px',
-              border: '1px solid #e2e8f0',
+              border: '1px solid var(--border-subtle, #e2e8f0)',
               fontSize: '12px',
               maxHeight: '180px',
               overflowY: 'auto'
             }}
           >
             {step.fieldMappings.length === 0 ? (
-              <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+              <span style={{ color: 'var(--text-muted, #94a3b8)', fontStyle: 'italic' }}>
                 No explicit field transformations required (passthrough schema).
               </span>
             ) : (
@@ -229,12 +257,12 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '6px 0',
-                    borderBottom: i < step.fieldMappings.length - 1 ? '1px dashed #e2e8f0' : 'none'
+                    borderBottom: i < step.fieldMappings.length - 1 ? '1px dashed var(--border-subtle, #e2e8f0)' : 'none'
                   }}
                 >
-                  <span style={{ fontWeight: 600, color: '#1e293b' }}>{m.source}</span>
-                  <span style={{ color: '#94a3b8', padding: '0 8px' }}>➔</span>
-                  <span style={{ color: '#2563eb', fontWeight: 500 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main, #1e293b)' }}>{m.source}</span>
+                  <span style={{ color: 'var(--text-muted, #94a3b8)', padding: '0 8px' }}>➔</span>
+                  <span style={{ color: 'var(--primary, #2563eb)', fontWeight: 500 }}>
                     {m.target} {m.transform ? `(${m.transform})` : ''}
                   </span>
                 </div>
@@ -245,7 +273,7 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
       </div>
 
       {/* Footer Actions */}
-      <div style={{ display: 'flex', gap: '10px', marginTop: '24px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginTop: '24px', borderTop: '1px solid var(--border-subtle, #e2e8f0)', paddingTop: '16px' }}>
         <button
           data-testid="drawer-cancel-btn"
           onClick={onClose}
@@ -253,12 +281,12 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
             flex: 1,
             padding: '10px',
             borderRadius: '6px',
-            border: '1px solid #cbd5e1',
-            background: '#ffffff',
+            border: '1px solid var(--border-subtle, #cbd5e1)',
+            background: 'var(--bg-card, #ffffff)',
             cursor: 'pointer',
             fontWeight: 600,
             fontSize: '13px',
-            color: '#475569'
+            color: 'var(--text-main, #475569)'
           }}
         >
           Cancel
@@ -287,6 +315,7 @@ export const StepConfigDrawer: React.FC<StepConfigDrawerProps> = ({
         </button>
       </div>
     </div>
+    </>
   );
 };
 

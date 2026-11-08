@@ -28,10 +28,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Worker service executing asynchronous batch processing pipelines on Java 21 Project Loom virtual threads.
+ * Worker service executing asynchronous batch processing pipelines on Java 21
+ * Project Loom virtual threads.
  */
 @Service
 public class BulkProcessingWorkerService {
@@ -44,9 +44,6 @@ public class BulkProcessingWorkerService {
     private final ComponentInstanceRepository componentInstanceRepository;
     private final DynamicScriptCompiler scriptCompiler;
     private final BulkReportService bulkReportService;
-
-    // Compiled script cache (instanceId_version -> compiled instance)
-    private final Map<String, DynamicValidatorScript> validatorCache = new ConcurrentHashMap<>();
 
     public BulkProcessingWorkerService(
             BulkJobRepository bulkJobRepository,
@@ -77,24 +74,21 @@ public class BulkProcessingWorkerService {
             ? processDefinitionRepository.findById(job.getProcessId())
             : Optional.empty();
 
-        // Resolve validator script
+        // Resolve validator script from central script compiler cache
         List<ComponentInstanceEntity> validators = componentInstanceRepository.findByComponentTypeAndIsActiveTrue("VALIDATOR");
         DynamicValidatorScript compiledValidator = null;
 
         if (!validators.isEmpty()) {
             ComponentInstanceEntity valEntity = validators.get(0);
             if (valEntity.getSourceCode() != null && !valEntity.getSourceCode().isBlank()) {
-                String cacheKey = valEntity.getInstanceId() + "_" + valEntity.getVersion();
-                compiledValidator = validatorCache.computeIfAbsent(
-                    cacheKey,
-                    k -> {
-                        try {
-                            return scriptCompiler.compileValidator(valEntity.getInstanceId(), valEntity.getSourceCode());
-                        } catch (Exception e) {
-                            throw new RuntimeException("Failed to compile dynamic validator " + valEntity.getInstanceId(), e);
-                        }
+                compiledValidator = scriptCompiler.getCachedValidator(valEntity.getInstanceId());
+                if (compiledValidator == null) {
+                    try {
+                        compiledValidator = scriptCompiler.compileValidator(valEntity.getInstanceId(), valEntity.getSourceCode());
+                    } catch (Exception e) {
+                        log.warn("Failed to compile dynamic validator {}: {}", valEntity.getInstanceId(), e.getMessage());
                     }
-                );
+                }
             }
         }
 
@@ -140,6 +134,7 @@ public class BulkProcessingWorkerService {
 
         long successCount = 0;
         long failedCount = 0;
+        List<BulkRecordErrorEntity> batchErrors = new ArrayList<>();
 
         for (RecordItem<Map<String, Object>> record : batch.records()) {
             PipelineRecordResult<Object> result = pipeline.processRecord(record, context);
@@ -165,8 +160,12 @@ public class BulkProcessingWorkerService {
                 errorEntity.setRawPayload(record.payload() != null ? record.payload().toString() : "");
                 errorEntity.setCreatedAt(Instant.now());
 
-                bulkRecordErrorRepository.save(errorEntity);
+                batchErrors.add(errorEntity);
             }
+        }
+
+        if (!batchErrors.isEmpty()) {
+            bulkRecordErrorRepository.saveAll(batchErrors);
         }
 
         // Update Job metrics

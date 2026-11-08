@@ -25,7 +25,7 @@ public class AdminDlqController {
         if (jobId != null && !jobId.isBlank()) {
             return ResponseEntity.ok(bulkRecordErrorRepository.findByJobId(jobId));
         }
-        return ResponseEntity.ok(bulkRecordErrorRepository.findAll());
+        return ResponseEntity.ok(bulkRecordErrorRepository.findTop500ByOrderByCreatedAtDesc());
     }
 
     @PostMapping("/{errorId}/resubmit")

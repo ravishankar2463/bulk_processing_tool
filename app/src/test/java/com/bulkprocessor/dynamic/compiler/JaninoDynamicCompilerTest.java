@@ -83,5 +83,69 @@ class JaninoDynamicCompilerTest {
         compiler.evict("cached-v1");
         assertThat(compiler.getCachedValidator("cached-v1")).isNull();
     }
+
+    @Test
+    @DisplayName("Blocks local file access and I/O streams in sandbox")
+    void shouldBlockFileIOAccessInSandbox() {
+        String fileScript = """
+            new java.io.FileInputStream("/etc/passwd");
+            return com.bulkprocessor.core.dynamic.DynamicValidatorScript.ValidationResult.valid();
+            """;
+
+        assertThrows(SecurityViolationException.class, () ->
+            compiler.compileValidator("malicious-file", fileScript)
+        );
+    }
+
+    @Test
+    @DisplayName("Blocks java.nio and network socket operations in sandbox")
+    void shouldBlockNioAndNetworkInSandbox() {
+        String nioScript = """
+            java.nio.file.Paths.get("/tmp/secret");
+            return com.bulkprocessor.core.dynamic.DynamicValidatorScript.ValidationResult.valid();
+            """;
+
+        assertThrows(SecurityViolationException.class, () ->
+            compiler.compileValidator("malicious-nio", nioScript)
+        );
+
+        String netScript = """
+            new java.net.Socket("169.254.169.254", 80);
+            return com.bulkprocessor.core.dynamic.DynamicValidatorScript.ValidationResult.valid();
+            """;
+
+        assertThrows(SecurityViolationException.class, () ->
+            compiler.compileValidator("malicious-net", netScript)
+        );
+
+        String unsafeScript = """
+            sun.misc.Unsafe.getUnsafe();
+            return com.bulkprocessor.core.dynamic.DynamicValidatorScript.ValidationResult.valid();
+            """;
+
+        assertThrows(SecurityViolationException.class, () ->
+            compiler.compileValidator("malicious-unsafe", unsafeScript)
+        );
+
+        String mgmtScript = """
+            java.lang.management.ManagementFactory.getRuntimeMXBean();
+            return com.bulkprocessor.core.dynamic.DynamicValidatorScript.ValidationResult.valid();
+            """;
+
+        assertThrows(SecurityViolationException.class, () ->
+            compiler.compileValidator("malicious-mgmt", mgmtScript)
+        );
+    }
+
+    @Test
+    @DisplayName("Compiles transient validator without leaking into memory cache")
+    void shouldCompileTransientValidatorWithoutLeakingMemory() throws Exception {
+        String script = "return com.bulkprocessor.core.dynamic.DynamicValidatorScript.ValidationResult.valid();";
+        DynamicValidatorScript transientVal = compiler.compileTransientValidator(script);
+
+        assertThat(transientVal).isNotNull();
+        assertThat(transientVal.validate(Map.of(), dummyContext).isValid()).isTrue();
+        assertThat(compiler.getCachedValidator("transient")).isNull();
+    }
 }
 

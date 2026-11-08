@@ -16,11 +16,17 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.*;
 
+/**
+ * REST controller for the Tier-1 Process Catalog Hub.
+ * Returns catalog routes, health metrics, and active execution telemetry.
+ */
 @RestController
 @CrossOrigin(origins = "*")
 public class ProcessCatalogController {
 
     private static final Logger log = LoggerFactory.getLogger(ProcessCatalogController.class);
+    private static final Set<String> ACTIVE_STATUSES = Set.of("PENDING", "PROCESSING", "RUNNING");
+    private static final List<PipelineStepConfigDto> DEFAULT_PIPELINE_STEPS = buildDefaultPipelineSteps();
 
     private final RouteConfigRepository routeConfigRepository;
     private final BulkJobRepository bulkJobRepository;
@@ -92,22 +98,14 @@ public class ProcessCatalogController {
 
     private ProcessRouteDto mapToProcessRouteDto(RouteConfigEntity route) {
         String processId = route.getProcessId() != null ? route.getProcessId() : route.getRouteId();
-        List<BulkJobEntity> jobs = bulkJobRepository.findByProcessIdOrderByStartTimeDesc(processId);
 
-        Set<String> activeStatuses = Set.of("PENDING", "PROCESSING", "RUNNING");
-        int activeFilesInFlight = (int) jobs.stream()
-            .filter(j -> activeStatuses.contains(j.getStatus()))
-            .count();
+        // Optimized count query leveraging native repository index
+        int activeFilesInFlight = (int) bulkJobRepository.countByProcessIdAndStatusIn(processId, ACTIVE_STATUSES);
 
-        long totalProcessed = 0L;
-        long totalSuccessful = 0L;
-        long totalFailed = 0L;
-
-        for (BulkJobEntity job : jobs) {
-            totalProcessed += job.getProcessedRecords() != null ? job.getProcessedRecords() : 0L;
-            totalSuccessful += job.getSuccessfulRecords() != null ? job.getSuccessfulRecords() : 0L;
-            totalFailed += job.getFailedRecords() != null ? job.getFailedRecords() : 0L;
-        }
+        // Single aggregate query replacing N+1 full entity scans
+        BulkJobRepository.JobMetricsProjection metrics = bulkJobRepository.getMetricsSummaryByProcessId(processId);
+        long totalSuccessful = metrics != null && metrics.getTotalSuccessful() != null ? metrics.getTotalSuccessful() : 0L;
+        long totalFailed = metrics != null && metrics.getTotalFailed() != null ? metrics.getTotalFailed() : 0L;
 
         double successRate = 100.0;
         if (totalSuccessful + totalFailed > 0) {
@@ -133,7 +131,7 @@ public class ProcessCatalogController {
             health = "HEALTHY";
         }
 
-        List<PipelineStepConfigDto> pipelineSteps = buildDefaultPipelineSteps();
+        List<PipelineStepConfigDto> pipelineSteps = DEFAULT_PIPELINE_STEPS;
 
         return new ProcessRouteDto(
             route.getRouteId(),
@@ -159,7 +157,7 @@ public class ProcessCatalogController {
         return "Configured dynamic enterprise pipeline for " + route.getRouteName();
     }
 
-    private List<PipelineStepConfigDto> buildDefaultPipelineSteps() {
+    private static List<PipelineStepConfigDto> buildDefaultPipelineSteps() {
         return List.of(
             new PipelineStepConfigDto(
                 "splitter",

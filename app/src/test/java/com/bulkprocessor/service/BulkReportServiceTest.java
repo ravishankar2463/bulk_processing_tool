@@ -77,5 +77,30 @@ class BulkReportServiceTest {
         assertThat(csvReport).contains("job-clean-202");
         assertThat(csvReport).contains("No record-level errors recorded for this job.");
     }
-}
 
+    @Test
+    @DisplayName("Mitigates CWE-1236 Formula Injection by neutralizing triggers with single quotes")
+    void testNeutralizeFormulaInjection() {
+        BulkJobEntity job = new BulkJobEntity();
+        job.setJobId("=cmd|' /C calc'!A0");
+        job.setFileName("+2+5");
+        job.setStatus("@SUM(A1:A10)");
+
+        BulkRecordErrorEntity err = new BulkRecordErrorEntity();
+        err.setJobId("job-sec-1");
+        err.setSequenceNumber(1L);
+        err.setStepName("-DANGEROUS_STEP");
+        err.setErrorCode("=HYPERLINK(\"http://evil.com\")");
+        err.setErrorMessage("\tmalicious_tab");
+        err.setRawPayload("{\"cmd\":\"=calc\"}");
+
+        String csvReport = reportService.generateCsvReport(job, List.of(err));
+
+        assertThat(csvReport).contains("\"'=cmd|' /C calc'!A0\"");
+        assertThat(csvReport).contains("\"'+2+5\"");
+        assertThat(csvReport).contains("\"'@SUM(A1:A10)\"");
+        assertThat(csvReport).contains("\"'-DANGEROUS_STEP\"");
+        assertThat(csvReport).contains("\"'=HYPERLINK(\"\"http://evil.com\"\")\"");
+        assertThat(csvReport).contains("\"'\tmalicious_tab\"");
+    }
+}

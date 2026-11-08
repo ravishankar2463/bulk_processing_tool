@@ -20,17 +20,25 @@ export const ProcessCatalog: React.FC<ProcessCatalogProps> = ({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     if (!propRoutes) {
       setLoading(true);
       fetchCatalogRoutes()
         .then((data) => {
-          setInternalRoutes(data);
-          setLoading(false);
+          if (isMounted) {
+            setInternalRoutes(data);
+            setLoading(false);
+          }
         })
         .catch(() => {
-          setLoading(false);
+          if (isMounted) {
+            setLoading(false);
+          }
         });
     }
+    return () => {
+      isMounted = false;
+    };
   }, [propRoutes]);
 
   const handleStart = async (routeId: string) => {

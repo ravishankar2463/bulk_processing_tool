@@ -5,12 +5,16 @@ import com.bulkprocessor.storage.entity.BulkRecordErrorEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Generates audit summary and error reports for executed bulk processing jobs.
+ * Enforces RFC 4180 compliance and CWE-1236 CSV/Formula Injection neutralization.
  */
 @Service
 public class BulkReportService {
+
+    private static final Pattern FORMULA_TRIGGER_PATTERN = Pattern.compile("^[\\s\\uFEFF]*[=+\\-@\\t\\r]");
 
     public String generateCsvReport(BulkJobEntity job, List<BulkRecordErrorEntity> errors) {
         StringBuilder sb = new StringBuilder();
@@ -18,14 +22,14 @@ public class BulkReportService {
         // 1. Tabular Summary Line (matches standard CSV headers)
         sb.append("Job ID,File Name,Status,Total Records,Processed Records,Successful Records,Failed Records,Start Time\n");
         sb.append(String.format("%s,%s,%s,%d,%d,%d,%d,%s\n\n",
-            job.getJobId(),
-            job.getFileName(),
-            job.getStatus(),
+            escapeCsv(job.getJobId()),
+            escapeCsv(job.getFileName()),
+            escapeCsv(job.getStatus()),
             job.getTotalRecords() != null ? job.getTotalRecords() : 0,
             job.getProcessedRecords() != null ? job.getProcessedRecords() : 0,
             job.getSuccessfulRecords() != null ? job.getSuccessfulRecords() : 0,
             job.getFailedRecords() != null ? job.getFailedRecords() : 0,
-            job.getStartTime() != null ? job.getStartTime().toString() : ""
+            job.getStartTime() != null ? escapeCsv(job.getStartTime().toString()) : ""
         ));
 
         // 2. Executive Details
@@ -64,11 +68,25 @@ public class BulkReportService {
         return sb.toString();
     }
 
-    private String escapeCsv(String value) {
-        if (value == null) return "";
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
+    /**
+     * Sanitizes and escapes CSV cell values.
+     * Mitigates CWE-1236 formula injection by escaping trigger characters with a leading single quote.
+     * Complies with RFC 4180 quoting rules.
+     */
+    public String escapeCsv(String value) {
+        if (value == null) {
+            return "";
         }
-        return value;
+
+        // Neutralize formula triggers (CWE-1236)
+        boolean isFormula = FORMULA_TRIGGER_PATTERN.matcher(value).find();
+        String safeValue = isFormula ? "'" + value : value;
+
+        // Escape double quotes and enclose in quotes if contains delimiter, quote, or newline
+        if (isFormula || safeValue.contains(",") || safeValue.contains("\"") || safeValue.contains("\n") || safeValue.contains("\r")) {
+            return "\"" + safeValue.replace("\"", "\"\"") + "\"";
+        }
+
+        return safeValue;
     }
 }

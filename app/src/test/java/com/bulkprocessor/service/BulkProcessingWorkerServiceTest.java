@@ -111,10 +111,13 @@ class BulkProcessingWorkerServiceTest {
 
         workerService.processBatch(batch);
 
-        // Verify error persisted for rec2
-        ArgumentCaptor<BulkRecordErrorEntity> errorCaptor = ArgumentCaptor.forClass(BulkRecordErrorEntity.class);
-        verify(bulkRecordErrorRepository).save(errorCaptor.capture());
-        BulkRecordErrorEntity savedError = errorCaptor.getValue();
+        // Verify error persisted in batch for rec2
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<BulkRecordErrorEntity>> errorCaptor = ArgumentCaptor.forClass(List.class);
+        verify(bulkRecordErrorRepository).saveAll(errorCaptor.capture());
+        List<BulkRecordErrorEntity> savedErrors = errorCaptor.getValue();
+        assertThat(savedErrors).hasSize(1);
+        BulkRecordErrorEntity savedError = savedErrors.get(0);
         assertThat(savedError.getJobId()).isEqualTo(jobId);
         assertThat(savedError.getSequenceNumber()).isEqualTo(2L);
         assertThat(savedError.getErrorCode()).isEqualTo("INVALID_EMAIL");

@@ -10,5 +10,6 @@ import java.util.List;
 public interface BulkRecordErrorRepository extends JpaRepository<BulkRecordErrorEntity, Long> {
     List<BulkRecordErrorEntity> findByJobId(String jobId);
     List<BulkRecordErrorEntity> findByJobIdAndStepName(String jobId, String stepName);
+    List<BulkRecordErrorEntity> findTop500ByOrderByCreatedAtDesc();
 }
 
