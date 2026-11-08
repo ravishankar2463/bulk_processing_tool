@@ -10,7 +10,17 @@ import {
   RecordErrorItem,
   ComponentInstance,
   ExecutionReportSummary,
-  FileRecordItem
+  FileRecordItem,
+  ConnectorDefinition,
+  ConnectorInstance,
+  RouteTopology,
+  ConnectorDryRunRequest,
+  ConnectorDryRunResult,
+  ScriptValidationResult,
+  SchemaParseResult,
+  WsdlValidationResult,
+  SoapEnvelopeGenerateResult,
+  XPathExtractResult
 } from '../types/process';
 
 interface CustomImportMeta {
@@ -1778,4 +1788,555 @@ export function updateMockJobStore(jobId: string, mutator: (job: FileExecutionJo
   }
   return null;
 }
+
+// ---------------------------------------------------------
+// Mock Data Stores for Connectors & Route Topology
+// ---------------------------------------------------------
+
+export const MOCK_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
+  {
+    definitionId: 'conn-def-csv',
+    name: 'CSV Ingestion Connector',
+    category: 'SOURCE',
+    streamRole: 'START',
+    protocol: 'CSV',
+    description: 'Streaming CSV source supporting Manual Upload, S3 Location, and SFTP with dynamic field definitions and type validation.',
+    icon: 'file-spreadsheet',
+    composite: false,
+    propertyManifest: JSON.stringify({
+      properties: [
+        { key: 'sourceType', label: 'CSV Source Type', type: 'select', options: ['MANUAL_UPLOAD', 'S3_BUCKET', 'SFTP_SERVER', 'LOCAL_DIRECTORY'], defaultValue: 'MANUAL_UPLOAD', required: true },
+        { key: 's3Uri', label: 'S3 Location URI', type: 'string', placeholder: 's3://my-enterprise-bucket/inbox/*.csv', required: false },
+        { key: 'delimiter', label: 'Field Delimiter', type: 'select', options: [',', ';', '\t', '|'], defaultValue: ',', required: true },
+        { key: 'hasHeader', label: 'Has Header Row', type: 'boolean', defaultValue: true, required: true },
+        { key: 'quoteChar', label: 'Quote Character', type: 'string', defaultValue: '"', required: false },
+        { key: 'charset', label: 'Encoding Charset', type: 'select', options: ['UTF-8', 'ISO-8859-1', 'US-ASCII'], defaultValue: 'UTF-8', required: true },
+        { key: 'fields', label: 'CSV Schema Fields', type: 'fields_schema', required: true }
+      ]
+    }),
+    builtIn: true,
+    version: 1
+  },
+  {
+    definitionId: 'conn-def-rest-json',
+    name: 'REST JSON Connector (Req & Res Pair)',
+    category: 'PROCESSOR',
+    streamRole: 'MIDDLE',
+    protocol: 'REST_JSON',
+    description: 'Composite HTTP REST client instantiating paired Request and Response nodes for record enrichment, payload generation, and JSONPath extraction.',
+    icon: 'globe',
+    composite: true,
+    propertyManifest: JSON.stringify({
+      properties: [
+        { key: 'method', label: 'HTTP Method', type: 'select', options: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], defaultValue: 'POST', required: true },
+        { key: 'endpointUrl', label: 'Endpoint URL', type: 'string', placeholder: 'https://api.internal.corp/v1/enrich/${id}', required: true },
+        { key: 'authType', label: 'Authentication', type: 'select', options: ['NONE', 'BEARER_TOKEN', 'API_KEY_HEADER', 'BASIC_AUTH'], defaultValue: 'NONE', required: true },
+        { key: 'headers', label: 'HTTP Headers', type: 'key_value', required: false },
+        { key: 'bodyTemplate', label: 'Request Body Template', type: 'string', placeholder: '{"customerId": "${id}", "email": "${email}"}', required: false },
+        { key: 'timeoutMs', label: 'Timeout (ms)', type: 'number', defaultValue: 5000, required: true },
+        { key: 'responseExtractMap', label: 'JSONPath Field Extractions', type: 'key_value', required: false }
+      ]
+    }),
+    builtIn: true,
+    version: 1
+  },
+  {
+    definitionId: 'conn-def-soap-xml',
+    name: 'SOAP XML Connector (Req & Res Pair)',
+    category: 'PROCESSOR',
+    streamRole: 'MIDDLE',
+    protocol: 'SOAP_XML',
+    description: 'Composite SOAP Web Service client instantiating XML Request Envelope generator and XML Response XPath extractor.',
+    icon: 'code-2',
+    composite: true,
+    propertyManifest: JSON.stringify({
+      properties: [
+        { key: 'wsdlUrl', label: 'WSDL or Service URL', type: 'string', placeholder: 'https://legacy.corp/ws/CustomerService?wsdl', required: true },
+        { key: 'soapAction', label: 'SOAPAction Header', type: 'string', placeholder: 'urn:ProcessCustomerRecord', required: false },
+        { key: 'soapVersion', label: 'SOAP Protocol Version', type: 'select', options: ['1.1', '1.2'], defaultValue: '1.1', required: true },
+        { key: 'envelopeTemplate', label: 'SOAP Request Envelope Template', type: 'string', placeholder: '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body><CustomerRequest id="${id}"/></soapenv:Body></soapenv:Envelope>', required: true },
+        { key: 'xpathExtractMap', label: 'XPath Field Extractions', type: 'key_value', required: false }
+      ]
+    }),
+    builtIn: true,
+    version: 1
+  },
+  {
+    definitionId: 'conn-def-db-sink',
+    name: 'Database JDBC Sink Connector',
+    category: 'SINK',
+    streamRole: 'END',
+    protocol: 'DATABASE',
+    description: 'Relational database writer with batch inserts, upsert support, and connection pooling.',
+    icon: 'database',
+    composite: false,
+    propertyManifest: JSON.stringify({
+      properties: [
+        { key: 'jdbcUrl', label: 'JDBC Connection URL', type: 'string', placeholder: 'jdbc:postgresql://postgres:5432/bulk_analytics', required: true },
+        { key: 'targetTable', label: 'Target Table', type: 'string', placeholder: 'processed_records', required: true },
+        { key: 'batchSize', label: 'Batch Insert Size', type: 'number', defaultValue: 1000, required: true },
+        { key: 'upsertKey', label: 'Conflict / Upsert Key', type: 'string', required: false }
+      ]
+    }),
+    builtIn: true,
+    version: 1
+  }
+];
+
+export const MOCK_CONNECTOR_INSTANCES: ConnectorInstance[] = [
+  {
+    instanceId: 'inst-csv-customer-source',
+    definitionId: 'conn-def-csv',
+    name: 'Customer Onboarding CSV Connector',
+    description: 'Inbound customer batch CSV with KYC and contact fields',
+    configuration: JSON.stringify({
+      sourceType: 'MANUAL_UPLOAD',
+      delimiter: ',',
+      hasHeader: true,
+      quoteChar: '"',
+      charset: 'UTF-8',
+      fields: [
+        { id: 'f-1', name: 'customer_id', type: 'INTEGER', required: true },
+        { id: 'f-2', name: 'full_name', type: 'STRING', required: true },
+        { id: 'f-3', name: 'email', type: 'STRING', required: true },
+        { id: 'f-4', name: 'balance', type: 'DECIMAL', required: false },
+        { id: 'f-5', name: 'registered_date', type: 'DATE', required: false, format: 'yyyy-MM-dd' }
+      ]
+    }),
+    version: 1,
+    active: true,
+    createdBy: 'admin'
+  }
+];
+
+let mockConnectorDefsStore = [...MOCK_CONNECTOR_DEFINITIONS];
+let mockConnectorInstancesStore = [...MOCK_CONNECTOR_INSTANCES];
+let mockTopologiesStore: Record<string, RouteTopology> = {
+  'customer-master-onboarding': {
+    topologyId: 'top-customer-master-onboarding',
+    routeId: 'customer-master-onboarding',
+    nodes: [
+      {
+        id: 'node-csv-src',
+        type: 'CONNECTOR',
+        refId: 'conn-def-csv',
+        label: 'CSV Ingestion Connector',
+        subLabel: 'Manual / S3 Source',
+        category: 'SOURCE',
+        streamRole: 'START',
+        x: 80,
+        y: 120,
+        inputPorts: [],
+        outputPorts: ['out_stream'],
+        config: {
+          sourceType: 'MANUAL_UPLOAD',
+          delimiter: ',',
+          hasHeader: true,
+          fields: [
+            { id: 'f1', name: 'customer_id', type: 'INTEGER', required: true },
+            { id: 'f2', name: 'name', type: 'STRING', required: true },
+            { id: 'f3', name: 'email', type: 'STRING', required: true },
+            { id: 'f4', name: 'balance', type: 'DECIMAL', required: false }
+          ]
+        }
+      },
+      {
+        id: 'node-split-comp',
+        type: 'COMPONENT',
+        refId: 'splitter-csv-univocity',
+        label: 'Streaming CSV Splitter',
+        subLabel: 'Univocity Parser',
+        category: 'SPLITTER',
+        streamRole: 'MIDDLE',
+        x: 360,
+        y: 120,
+        inputPorts: ['in_stream'],
+        outputPorts: ['out_records'],
+        config: { chunkSize: 500 }
+      },
+      {
+        id: 'node-rest-req',
+        type: 'CONNECTOR',
+        refId: 'conn-def-rest-json',
+        label: 'JSON Request Connector',
+        subLabel: 'POST /api/kyc/verify',
+        category: 'PROCESSOR',
+        streamRole: 'MIDDLE',
+        x: 640,
+        y: 80,
+        inputPorts: ['in_records'],
+        outputPorts: ['out_http_req'],
+        config: {
+          method: 'POST',
+          endpointUrl: 'https://api.internal.corp/v1/kyc/verify',
+          authType: 'BEARER_TOKEN',
+          timeoutMs: 3000
+        }
+      },
+      {
+        id: 'node-rest-res',
+        type: 'CONNECTOR',
+        refId: 'conn-def-rest-json',
+        label: 'JSON Response Connector',
+        subLabel: 'JSONPath Extractor',
+        category: 'PROCESSOR',
+        streamRole: 'MIDDLE',
+        x: 920,
+        y: 80,
+        inputPorts: ['in_http_req'],
+        outputPorts: ['out_enriched'],
+        config: {
+          expectedStatus: [200, 201],
+          extractMappings: { 'kyc_status': '$.data.status', 'risk_score': '$.data.score' }
+        }
+      },
+      {
+        id: 'node-val-comp',
+        type: 'COMPONENT',
+        refId: 'val-customer-kyc',
+        label: 'Customer KYC Validator',
+        subLabel: 'RFC 5322 Email Rule',
+        category: 'VALIDATOR',
+        streamRole: 'MIDDLE',
+        x: 1200,
+        y: 120,
+        inputPorts: ['in_enriched'],
+        outputPorts: ['out_validated'],
+        config: { errorPolicy: 'QUARANTINE_RECORD' }
+      },
+      {
+        id: 'node-sink-conn',
+        type: 'CONNECTOR',
+        refId: 'conn-def-db-sink',
+        label: 'Database JDBC Sink',
+        subLabel: 'Customer Analytics DB',
+        category: 'SINK',
+        streamRole: 'END',
+        x: 1480,
+        y: 120,
+        inputPorts: ['in_validated'],
+        outputPorts: [],
+        config: { targetTable: 'customer_master', batchSize: 1000 }
+      }
+    ],
+    edges: [
+      { id: 'edge-1', fromNodeId: 'node-csv-src', fromPort: 'out_stream', toNodeId: 'node-split-comp', toPort: 'in_stream' },
+      { id: 'edge-2', fromNodeId: 'node-split-comp', fromPort: 'out_records', toNodeId: 'node-rest-req', toPort: 'in_records' },
+      { id: 'edge-3', fromNodeId: 'node-rest-req', fromPort: 'out_http_req', toNodeId: 'node-rest-res', toPort: 'in_http_req' },
+      { id: 'edge-4', fromNodeId: 'node-rest-res', fromPort: 'out_enriched', toNodeId: 'node-val-comp', toPort: 'in_enriched' },
+      { id: 'edge-5', fromNodeId: 'node-val-comp', fromPort: 'out_validated', toNodeId: 'node-sink-conn', toPort: 'in_validated' }
+    ],
+    version: 1
+  }
+};
+
+export function getMockConnectorDefinitions(): ConnectorDefinition[] {
+  return [...mockConnectorDefsStore];
+}
+
+export function saveMockCustomConnectorDefinition(def: ConnectorDefinition): ConnectorDefinition {
+  const index = mockConnectorDefsStore.findIndex(d => d.definitionId === def.definitionId);
+  if (index >= 0) {
+    mockConnectorDefsStore[index] = def;
+  } else {
+    mockConnectorDefsStore.push(def);
+  }
+  return def;
+}
+
+export function deleteMockCustomConnectorDefinition(definitionId: string): boolean {
+  const initialLen = mockConnectorDefsStore.length;
+  mockConnectorDefsStore = mockConnectorDefsStore.filter(d => d.definitionId !== definitionId || d.builtIn);
+  return mockConnectorDefsStore.length < initialLen;
+}
+
+export function getMockConnectorInstances(): ConnectorInstance[] {
+  return [...mockConnectorInstancesStore];
+}
+
+export function saveMockConnectorInstance(instance: ConnectorInstance): ConnectorInstance {
+  const index = mockConnectorInstancesStore.findIndex(i => i.instanceId === instance.instanceId);
+  if (index >= 0) {
+    mockConnectorInstancesStore[index] = instance;
+  } else {
+    mockConnectorInstancesStore.push(instance);
+  }
+  return instance;
+}
+
+export function getMockRouteTopology(routeId: string): RouteTopology {
+  if (mockTopologiesStore[routeId]) {
+    return mockTopologiesStore[routeId];
+  }
+  // Synthesize default topology
+  const defaultTop: RouteTopology = {
+    topologyId: `top-${routeId}`,
+    routeId,
+    nodes: [
+      {
+        id: 'node-csv-src',
+        type: 'CONNECTOR',
+        refId: 'conn-def-csv',
+        label: 'CSV Ingestion Connector',
+        subLabel: 'Source Stream',
+        category: 'SOURCE',
+        x: 80,
+        y: 120,
+        inputPorts: [],
+        outputPorts: ['out_stream'],
+        config: {
+          sourceType: 'MANUAL_UPLOAD',
+          delimiter: ',',
+          hasHeader: true,
+          fields: [
+            { id: 'f1', name: 'id', type: 'INTEGER', required: true },
+            { id: 'f2', name: 'data', type: 'STRING', required: true }
+          ]
+        }
+      },
+      {
+        id: 'node-split-comp',
+        type: 'COMPONENT',
+        refId: 'splitter-csv-univocity',
+        label: 'CSV Splitter Component',
+        subLabel: 'Record Chunking',
+        category: 'SPLITTER',
+        x: 360,
+        y: 120,
+        inputPorts: ['in_stream'],
+        outputPorts: ['out_records'],
+        config: { chunkSize: 500 }
+      },
+      {
+        id: 'node-sink-conn',
+        type: 'CONNECTOR',
+        refId: 'conn-def-db-sink',
+        label: 'Database Sink Connector',
+        subLabel: 'Target Store',
+        category: 'SINK',
+        x: 640,
+        y: 120,
+        inputPorts: ['in_records'],
+        outputPorts: [],
+        config: { targetTable: 'records_out', batchSize: 500 }
+      }
+    ],
+    edges: [
+      { id: 'e1', fromNodeId: 'node-csv-src', fromPort: 'out_stream', toNodeId: 'node-split-comp', toPort: 'in_stream' },
+      { id: 'e2', fromNodeId: 'node-split-comp', fromPort: 'out_records', toNodeId: 'node-sink-conn', toPort: 'in_records' }
+    ],
+    version: 1
+  };
+  mockTopologiesStore[routeId] = defaultTop;
+  return defaultTop;
+}
+
+export function saveMockRouteTopology(routeId: string, topology: RouteTopology): RouteTopology {
+  mockTopologiesStore[routeId] = topology;
+  return topology;
+}
+
+export function dryRunMockConnector(request: ConnectorDryRunRequest): ConnectorDryRunResult {
+  const start = performance.now();
+  const sample = (request.sampleInput || '').trim();
+  const previewRecords: Record<string, unknown>[] = [];
+  const logs: string[] = [`Initiated dry-run for protocol: ${request.protocol}`];
+
+  if (request.protocol === 'CSV') {
+    const lines = sample
+      ? sample.split(/\r?\n/)
+      : [
+          'id,name,email,amount',
+          '101,Acme Corporation,billing@acme.com,12500.50',
+          '102,Global Logistics,ops@globallogistics.org,4520.00'
+        ];
+    const headers = lines[0].split(',');
+    logs.push(`Parsed ${headers.length} headers: ${headers.join(', ')}`);
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      const values = lines[i].split(',');
+      const row: Record<string, unknown> = {};
+      headers.forEach((h, idx) => {
+        row[h.trim()] = values[idx] ? values[idx].trim() : '';
+      });
+      previewRecords.push(row);
+    }
+    logs.push(`Successfully extracted ${previewRecords.length} records.`);
+  } else if (request.protocol === 'REST_JSON') {
+    previewRecords.push({
+      status: 'SUCCESS',
+      httpCode: 200,
+      enrichedAt: new Date().toISOString(),
+      account_tier: 'GOLD',
+      risk_score: 0.04
+    });
+    logs.push('REST mock endpoint responded 200 OK with JSON body.');
+  } else if (request.protocol === 'SOAP_XML') {
+    previewRecords.push({
+      soap_status: 'CLEARED',
+      auth_code: 'AUTH-' + Math.floor(Math.random() * 90000 + 10000),
+      timestamp: new Date().toISOString()
+    });
+    logs.push('SOAP envelope evaluated and XPath extractor returned cleared transaction.');
+  } else {
+    previewRecords.push({ status: 'CUSTOM_EXECUTED', payload: request.configuration });
+    logs.push('Custom connector logic executed successfully.');
+  }
+
+  const durationMicros = Math.round((performance.now() - start) * 1000);
+  logs.push(`Execution completed in ${durationMicros} microseconds.`);
+
+  if (request.customCode && request.customCode.trim()) {
+    logs.push(`Executed custom script hook (${request.codeHookType || 'TRANSFORM'}) in mock sandbox.`);
+    previewRecords.forEach(rec => {
+      rec['custom_hook_applied'] = true;
+    });
+  }
+
+  return {
+    success: true,
+    durationMicros,
+    recordsExtracted: previewRecords.length,
+    previewRecords,
+    rawOutput: JSON.stringify(previewRecords, null, 2),
+    logs
+  };
+}
+
+export function validateMockScript(request: { script: string; hookType?: string }): ScriptValidationResult {
+  const script = request.script || '';
+  if (!script.trim()) {
+    return { valid: true, compilationTimeMicros: 0 };
+  }
+  if (script.includes('System.exit') || script.includes('Runtime.getRuntime') || script.includes('ProcessBuilder')) {
+    return {
+      valid: false,
+      errorMessage: 'Security Violation: Prohibited class or method detected in script sandbox.',
+      errorLine: 1,
+      compilationTimeMicros: 120
+    };
+  }
+  return { valid: true, compilationTimeMicros: 450 };
+}
+
+export function parseMockJsonStructure(request: { input: string; isSchema?: boolean; targetMode?: 'REQUEST' | 'RESPONSE' }): SchemaParseResult {
+  const mode = request.targetMode || 'REQUEST';
+  try {
+    const parsed = JSON.parse(request.input);
+    const fieldTypes: Record<string, string> = {};
+    const jsonPathMappings: Record<string, string> = {};
+    const templateObj: Record<string, unknown> = {};
+
+    function traverse(obj: Record<string, unknown>, prefix = '$') {
+      for (const [k, v] of Object.entries(obj)) {
+        const path = `${prefix}.${k}`;
+        if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+          templateObj[k] = {};
+          traverse(v as Record<string, unknown>, path);
+        } else {
+          fieldTypes[k] = typeof v === 'number' ? 'INTEGER' : typeof v === 'boolean' ? 'BOOLEAN' : 'STRING';
+          jsonPathMappings[path] = k;
+          templateObj[k] = `$${` + k + `}`;
+        }
+      }
+    }
+
+    traverse(parsed);
+
+    return {
+      success: true,
+      mode,
+      fieldTypes,
+      generatedTemplate: JSON.stringify(templateObj, null, 2),
+      jsonPathMappings,
+      warnings: []
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      mode,
+      fieldTypes: {},
+      generatedTemplate: '',
+      jsonPathMappings: {},
+      warnings: [(err as Error).message || 'Invalid JSON syntax']
+    };
+  }
+}
+
+export function validateMockWsdl(request: { wsdlSource: string; isUrl?: boolean }): WsdlValidationResult {
+  const src = request.wsdlSource || '';
+  if (!src.trim()) {
+    return { valid: false, operations: [], errorMessage: 'WSDL source cannot be empty.' };
+  }
+  return {
+    valid: true,
+    serviceName: 'EnterpriseAccountService',
+    targetNamespace: 'http://services.enterprise.corp/account',
+    endpointUrl: 'https://soap.enterprise.corp/ws/AccountService',
+    operations: [
+      {
+        name: 'GetAccountBalance',
+        soapAction: 'http://services.enterprise.corp/account/GetAccountBalance',
+        inputMessage: 'GetAccountBalanceRequest',
+        outputMessage: 'GetAccountBalanceResponse',
+        detectedParameters: ['accountId', 'currency']
+      },
+      {
+        name: 'PostCustomerTransaction',
+        soapAction: 'http://services.enterprise.corp/account/PostCustomerTransaction',
+        inputMessage: 'PostCustomerTransactionRequest',
+        outputMessage: 'PostCustomerTransactionResponse',
+        detectedParameters: ['accountId', 'amount', 'referenceCode']
+      }
+    ]
+  };
+}
+
+export function generateMockSoapEnvelope(request: { operationName: string; targetNamespace?: string; soapVersion?: '1.1' | '1.2'; parameters?: readonly string[] }): SoapEnvelopeGenerateResult {
+  const op = request.operationName || 'ProcessRecord';
+  const ns = request.targetNamespace || 'http://services.enterprise.corp/account';
+  const ver = request.soapVersion || '1.1';
+  const params = request.parameters || ['id', 'amount'];
+
+  const lines = [
+    ver === '1.2'
+      ? `<soapenv:Envelope xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope" xmlns:ns="${ns}">`
+      : `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="${ns}">`,
+    '  <soapenv:Header/>',
+    '  <soapenv:Body>',
+    `    <ns:${op}>`
+  ];
+
+  params.forEach(p => {
+    lines.push(`      <ns:${p}>$${` + p + `}</ns:${p}>`);
+  });
+
+  lines.push(`    </ns:${op}>`);
+  lines.push('  </soapenv:Body>');
+  lines.push('</soapenv:Envelope>');
+
+  return {
+    envelopeXml: lines.join('\n'),
+    soapAction: `${ns}/${op}`,
+    contentType: ver === '1.2' ? 'application/soap+xml; charset=utf-8' : 'text/xml; charset=utf-8'
+  };
+}
+
+export function generateMockXPathMappings(request: { sampleXml: string }): XPathExtractResult {
+  const xml = request.sampleXml || '';
+  if (!xml.trim()) {
+    return { success: false, xpathMappings: {}, detectedElements: [], errorMessage: 'Sample XML cannot be empty' };
+  }
+  return {
+    success: true,
+    xpathMappings: {
+      '//Response/Status/text()': 'status',
+      '//Response/AccountId/text()': 'account_id',
+      '//Response/Balance/text()': 'balance'
+    },
+    detectedElements: ['Status', 'AccountId', 'Balance']
+  };
+}
+
+
 

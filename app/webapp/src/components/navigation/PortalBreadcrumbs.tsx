@@ -5,7 +5,7 @@ export interface PortalBreadcrumbsProps {
   activeTab: 'USER' | 'ADMIN';
   activeWorkspaceRouteId: string | null;
   activeRouteName?: string;
-  adminSubTab: 'ROUTES' | 'COMPONENTS' | 'DLQ';
+  adminSubTab: 'ROUTES' | 'CONNECTORS' | 'COMPONENTS' | 'DLQ';
   onNavigateHome: () => void;
   onNavigateRouteCatalog: () => void;
 }
@@ -57,7 +57,7 @@ export const PortalBreadcrumbs: React.FC<PortalBreadcrumbsProps> = ({
             <span style={{ color: 'var(--text-main, #0f172a)', fontWeight: 700 }}>Admin Studio</span>
             <ChevronRight size={12} />
             <span style={{ color: 'var(--primary, #2563eb)', fontWeight: 600 }}>
-              {adminSubTab === 'ROUTES' ? 'Dynamic Route Studio' : adminSubTab === 'COMPONENTS' ? 'Component Library' : 'Dead Letter Queue'}
+              {adminSubTab === 'ROUTES' ? 'Dynamic Route Studio' : adminSubTab === 'CONNECTORS' ? 'Connectors & Topology' : adminSubTab === 'COMPONENTS' ? 'Component Library' : 'Dead Letter Queue'}
             </span>
           </>
         )}

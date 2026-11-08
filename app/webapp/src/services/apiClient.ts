@@ -16,7 +16,22 @@ import {
   RecordErrorItem,
   ComponentInstance,
   ExecutionReportSummary,
-  FileRecordItem
+  FileRecordItem,
+  ConnectorDefinition,
+  ConnectorInstance,
+  RouteTopology,
+  ConnectorDryRunRequest,
+  ConnectorDryRunResult,
+  ScriptValidationRequest,
+  ScriptValidationResult,
+  SchemaParseRequest,
+  SchemaParseResult,
+  WsdlValidationRequest,
+  WsdlValidationResult,
+  SoapEnvelopeGenerateRequest,
+  SoapEnvelopeGenerateResult,
+  XPathExtractRequest,
+  XPathExtractResult
 } from '../types/process';
 
 import {
@@ -37,7 +52,20 @@ import {
   updateMockRouteStore,
   getMockJobs,
   addMockJobsStore,
-  updateMockJobStore
+  updateMockJobStore,
+  getMockConnectorDefinitions,
+  saveMockCustomConnectorDefinition,
+  deleteMockCustomConnectorDefinition,
+  getMockConnectorInstances,
+  saveMockConnectorInstance,
+  getMockRouteTopology,
+  saveMockRouteTopology,
+  dryRunMockConnector,
+  validateMockScript,
+  parseMockJsonStructure,
+  validateMockWsdl,
+  generateMockSoapEnvelope,
+  generateMockXPathMappings
 } from './mockFixtures';
 
 import { getTraceHeaders, recordApiTelemetry } from '../utils/telemetry';
@@ -689,3 +717,313 @@ export async function resubmitDlqRecord(errorId: string | number): Promise<boole
   }
   return true;
 }
+
+// ---------------------------------------------------------
+// Connector & Route Topology Client API Layer
+// ---------------------------------------------------------
+
+/**
+ * Fetch all available connector definitions (built-in + custom).
+ */
+export async function fetchConnectorDefinitions(): Promise<ConnectorDefinition[]> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/definitions`, { credentials: 'omit' });
+    if (res.ok) {
+      const data: ConnectorDefinition[] = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    }
+  } catch {
+    // Network failure or offline -> fallback to mock fixtures
+  }
+  return getMockConnectorDefinitions();
+}
+
+/**
+ * Create a new custom connector definition.
+ */
+export async function createCustomConnectorDefinition(def: Partial<ConnectorDefinition>): Promise<ConnectorDefinition> {
+  const payload: ConnectorDefinition = {
+    definitionId: def.definitionId || `conn-custom-${Date.now()}`,
+    name: def.name || 'Custom Dynamic Connector',
+    category: def.category || 'CUSTOM',
+    protocol: def.protocol || 'CUSTOM',
+    description: def.description || '',
+    icon: def.icon || 'cpu',
+    composite: Boolean(def.composite),
+    propertyManifest: def.propertyManifest || '{"properties":[]}',
+    builtIn: false,
+    version: 1
+  };
+
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/definitions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return saveMockCustomConnectorDefinition(payload);
+}
+
+/**
+ * Delete a custom connector definition.
+ */
+export async function deleteCustomConnectorDefinition(definitionId: string): Promise<boolean> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/definitions/${definitionId}`, {
+      method: 'DELETE',
+      credentials: 'omit'
+    });
+    if (res.ok) return true;
+  } catch {
+    // Fallback
+  }
+  return deleteMockCustomConnectorDefinition(definitionId);
+}
+
+/**
+ * Fetch all configured connector instances.
+ */
+export async function fetchConnectorInstances(): Promise<ConnectorInstance[]> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/instances`, { credentials: 'omit' });
+    if (res.ok) {
+      const data: ConnectorInstance[] = await res.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+    }
+  } catch {
+    // Fallback
+  }
+  return getMockConnectorInstances();
+}
+
+/**
+ * Save a connector instance configuration.
+ */
+export async function saveConnectorInstance(instance: Partial<ConnectorInstance>): Promise<ConnectorInstance> {
+  const payload: ConnectorInstance = {
+    instanceId: instance.instanceId || `inst-${Date.now()}`,
+    definitionId: instance.definitionId || 'conn-def-csv',
+    name: instance.name || 'Configured Connector Instance',
+    description: instance.description || '',
+    configuration: instance.configuration || '{}',
+    version: instance.version || 1,
+    active: instance.active ?? true,
+    createdBy: instance.createdBy || 'admin'
+  };
+
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/instances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return saveMockConnectorInstance(payload);
+}
+
+/**
+ * Fetch route topology DAG graph for a given route.
+ */
+export async function fetchRouteTopology(routeId: string): Promise<RouteTopology> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/routes/${routeId}/topology`, { credentials: 'omit' });
+    if (res.ok) {
+      const data: RouteTopology = await res.json();
+      if (data && Array.isArray(data.nodes)) {
+        return data;
+      }
+    }
+  } catch {
+    // Fallback
+  }
+  return getMockRouteTopology(routeId);
+}
+
+/**
+ * Save route topology DAG graph for a route.
+ */
+export async function saveRouteTopology(routeId: string, topology: RouteTopology): Promise<RouteTopology> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/routes/${routeId}/topology`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(topology),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return saveMockRouteTopology(routeId, topology);
+}
+
+/**
+ * Validate route topology DAG graph.
+ */
+export async function validateRouteTopology(routeId: string, topology: RouteTopology): Promise<{ valid: boolean; errors: string[] }> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/routes/${routeId}/topology/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(topology),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  // Client-side fallback validation
+  const errors: string[] = [];
+  if (!topology.nodes || topology.nodes.length === 0) {
+    errors.push('Topology must contain at least one node.');
+  }
+  const nodeIds = new Set(topology.nodes.map(n => n.id));
+  topology.edges.forEach(e => {
+    if (!nodeIds.has(e.fromNodeId)) errors.push(`Edge references missing source node: ${e.fromNodeId}`);
+    if (!nodeIds.has(e.toNodeId)) errors.push(`Edge references missing target node: ${e.toNodeId}`);
+  });
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Execute interactive dry-run sandbox test for a connector.
+ */
+export async function dryRunConnector(request: ConnectorDryRunRequest): Promise<ConnectorDryRunResult> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/dry-run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return dryRunMockConnector(request);
+}
+
+/**
+ * Validate script compilation and security sandbox.
+ */
+export async function validateScript(request: ScriptValidationRequest): Promise<ScriptValidationResult> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/validate-script`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return validateMockScript(request);
+}
+
+/**
+ * Parse JSON Schema or raw sample JSON to generate request templates and JSONPaths.
+ */
+export async function parseJsonStructure(request: SchemaParseRequest): Promise<SchemaParseResult> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/parse-json-structure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return parseMockJsonStructure(request);
+}
+
+/**
+ * Validate WSDL source and discover available SOAP operations.
+ */
+export async function validateWsdl(request: WsdlValidationRequest): Promise<WsdlValidationResult> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/validate-wsdl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return validateMockWsdl(request);
+}
+
+/**
+ * Synthesize SOAP Request Envelope from operation metadata.
+ */
+export async function generateSoapEnvelope(request: SoapEnvelopeGenerateRequest): Promise<SoapEnvelopeGenerateResult> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/generate-soap-envelope`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return generateMockSoapEnvelope(request);
+}
+
+/**
+ * Extract response XPath mappings from sample XML.
+ */
+export async function generateXPathMappings(request: XPathExtractRequest): Promise<XPathExtractResult> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/connectors/generate-xpath-mappings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return generateMockXPathMappings(request);
+}
+
+

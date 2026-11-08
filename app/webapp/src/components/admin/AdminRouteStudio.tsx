@@ -11,6 +11,7 @@ import {
   Activity,
   Code2
 } from 'lucide-react';
+import { NonEditableRouteDagStream } from './topology/NonEditableRouteDagStream';
 
 export interface RouteConfigData {
   routeId: string;
@@ -33,6 +34,7 @@ interface Props {
   onCreateRoute: () => void;
   onViewWorkspace?: (routeId: string) => void;
   onInspectComponent?: (componentId: string) => void;
+  onDesignTopology?: (routeId: string) => void;
 }
 
 export const AdminRouteStudio: React.FC<Props> = ({
@@ -41,7 +43,8 @@ export const AdminRouteStudio: React.FC<Props> = ({
   onEditRoute,
   onCreateRoute,
   onViewWorkspace,
-  onInspectComponent
+  onInspectComponent,
+  onDesignTopology
 }) => {
   return (
     <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
@@ -162,23 +165,23 @@ export const AdminRouteStudio: React.FC<Props> = ({
 
                   <button
                     data-testid={`edit-route-btn-${route.routeId}`}
-                    onClick={() => onEditRoute(route)}
+                    onClick={() => onDesignTopology ? onDesignTopology(route.routeId) : onEditRoute(route)}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px',
                       padding: '7px 14px',
-                      border: '1px solid var(--border-subtle, #cbd5e1)',
-                      background: 'var(--bg-card, #ffffff)',
-                      color: 'var(--text-main, #0f172a)',
+                      border: '1px solid #bfdbfe',
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
                       borderRadius: '6px',
                       fontSize: '13px',
-                      fontWeight: 500,
+                      fontWeight: 600,
                       cursor: 'pointer',
                       boxShadow: 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04))'
                     }}
                   >
-                    <Edit size={13} /> Edit
+                    <GitBranch size={13} /> Edit DAG
                   </button>
 
                   <button
@@ -204,96 +207,13 @@ export const AdminRouteStudio: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Pipeline Topology Visualization Graph with Direct Component Linking */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: 'var(--bg-card-subtle, #f8fafc)',
-                  border: '1px solid var(--border-subtle, #e2e8f0)',
-                  borderRadius: '10px',
-                  padding: '14px 18px',
-                  gap: '12px',
-                  overflowX: 'auto',
-                  fontSize: '12px',
-                  marginBottom: '14px'
-                }}
-              >
-                <div 
-                  onClick={() => onInspectComponent && onInspectComponent(route.splitterInstanceId || 'splitter-csv-univocity')}
-                  title="Click to view/edit Splitter component"
-                  style={{ 
-                    textAlign: 'center', 
-                    minWidth: '130px', 
-                    background: 'var(--bg-card, #ffffff)', 
-                    padding: '8px 12px', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--border-subtle, #e2e8f0)',
-                    cursor: onInspectComponent ? 'pointer' : 'default',
-                    transition: 'border-color 0.15s ease'
-                  }}
-                >
-                  <div style={{ color: 'var(--text-muted, #64748b)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Splitter</div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-main, #1e293b)' }}>{route.splitterInstanceId || 'Default CSV'}</div>
-                </div>
-                <ArrowRight size={14} color="#94a3b8" />
-
-                <div 
-                  onClick={() => onInspectComponent && onInspectComponent(route.validatorInstanceId || 'val-customer-kyc')}
-                  title="Click to view/edit Validator component"
-                  style={{ 
-                    textAlign: 'center', 
-                    minWidth: '130px', 
-                    background: 'var(--bg-card, #ffffff)', 
-                    padding: '8px 12px', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--border-subtle, #e2e8f0)',
-                    cursor: onInspectComponent ? 'pointer' : 'default',
-                    transition: 'border-color 0.15s ease'
-                  }}
-                >
-                  <div style={{ color: 'var(--text-muted, #64748b)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Validator</div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-main, #1e293b)' }}>{route.validatorInstanceId || 'None'}</div>
-                </div>
-                <ArrowRight size={14} color="#94a3b8" />
-
-                <div 
-                  onClick={() => onInspectComponent && onInspectComponent(route.processorInstanceId || 'proc-customer-enricher')}
-                  title="Click to view/edit Batch Processor component"
-                  style={{ 
-                    textAlign: 'center', 
-                    minWidth: '140px', 
-                    background: 'var(--bg-card, #ffffff)', 
-                    padding: '8px 12px', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--border-subtle, #e2e8f0)',
-                    cursor: onInspectComponent ? 'pointer' : 'default',
-                    transition: 'border-color 0.15s ease'
-                  }}
-                >
-                  <div style={{ color: 'var(--text-muted, #64748b)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Batch Processor</div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-main, #1e293b)' }}>{route.processorInstanceId || 'Passthrough'}</div>
-                </div>
-                <ArrowRight size={14} color="#94a3b8" />
-
-                <div 
-                  onClick={() => onInspectComponent && onInspectComponent(route.writerInstanceId || 'writer-audit-csv')}
-                  title="Click to view/edit Report Writer component"
-                  style={{ 
-                    textAlign: 'center', 
-                    minWidth: '130px', 
-                    background: 'var(--bg-card, #ffffff)', 
-                    padding: '8px 12px', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--border-subtle, #e2e8f0)',
-                    cursor: onInspectComponent ? 'pointer' : 'default',
-                    transition: 'border-color 0.15s ease'
-                  }}
-                >
-                  <div style={{ color: 'var(--text-muted, #64748b)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Report Writer</div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-main, #1e293b)' }}>{route.writerInstanceId || 'Summary CSV'}</div>
-                </div>
-              </div>
+              {/* Non-Editable Stream DAG Visualization (Replaces hardcoded 4-box pipeline) */}
+              <NonEditableRouteDagStream
+                routeId={route.routeId}
+                onEditDAG={() => onDesignTopology ? onDesignTopology(route.routeId) : onEditRoute(route)}
+                onExpandDAG={() => onDesignTopology ? onDesignTopology(route.routeId) : onEditRoute(route)}
+                onInspectNode={(node) => onInspectComponent && onInspectComponent(node.refId)}
+              />
 
               {/* Execution Concurrency Footer */}
               <div style={{ display: 'flex', gap: '24px', fontSize: '12px', color: 'var(--text-muted, #64748b)', borderTop: '1px solid var(--border-subtle, #f1f5f9)', paddingTop: '12px', alignItems: 'center', flexWrap: 'wrap' }}>

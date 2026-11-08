@@ -1,0 +1,27 @@
+{
+  "folders": [
+    {
+      "name": "Workspace Root",
+      "path": "."
+    },
+    {
+      "name": "Backend Application (Java 21 / Spring Boot)",
+      "path": "app"
+    },
+    {
+      "name": "Frontend Application (React 18 / Vite)",
+      "path": "app/webapp"
+    }
+  ],
+  "settings": {
+    "java.compile.nullAnalysis.mode": "disabled",
+    "java.server.launchMode": "Standard",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.autobuild.enabled": true,
+    "java.import.maven.enabled": true,
+    "java.errors.incompleteClasspath.severity": "ignore",
+    "files.associations": {
+      "*.java": "java"
+    }
+  }
+}

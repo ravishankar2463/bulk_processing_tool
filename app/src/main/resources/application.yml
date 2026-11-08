@@ -20,6 +20,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    placeholder-replacement: false
     locations: classpath:db/migration
   data:
     redis:

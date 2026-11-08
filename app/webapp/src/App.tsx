@@ -17,6 +17,7 @@ import { AppHeader } from './components/navigation/AppHeader';
 import { PortalBreadcrumbs } from './components/navigation/PortalBreadcrumbs';
 import { AdminModalsContainer } from './components/admin/AdminModalsContainer';
 import { AdminComponentLibrary } from './components/admin/AdminComponentLibrary';
+import { AdminConnectorsAndTopologyStudio } from './components/admin/topology/AdminConnectorsAndTopologyStudio';
 import { ProcessRoute, FileExecutionJob, FileDiagnosticsData } from './types/process';
 import { 
   fetchCatalogRoutes, 
@@ -37,7 +38,7 @@ import {
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [activeTab, setActiveTab] = useState<'USER' | 'ADMIN'>('USER');
-  const [adminSubTab, setAdminSubTab] = useState<'ROUTES' | 'COMPONENTS' | 'DLQ'>('ROUTES');
+  const [adminSubTab, setAdminSubTab] = useState<'ROUTES' | 'CONNECTORS' | 'COMPONENTS' | 'DLQ'>('ROUTES');
   const [userInspectingJobId, setUserInspectingJobId] = useState<string | null>(null);
 
   // 3-Tier Enterprise Hierarchy State
@@ -304,6 +305,7 @@ export const App: React.FC = () => {
   const [activeModal, setActiveModal] = useState<'NONE' | 'WIZARD' | 'EDITOR' | 'UPLOAD' | 'PIPELINE_WIZARD'>('NONE');
   const [editingComponent, setEditingComponent] = useState<ComponentInstanceData | undefined>(undefined);
   const [editingRoute, setEditingRoute] = useState<RouteConfigData | null>(null);
+  const [topologyStudioMode, setTopologyStudioMode] = useState<'EDIT' | 'VIEW'>('EDIT');
 
   // User Actions
   const handleUploadSubmit = (file: File, routeId: string) => {
@@ -574,6 +576,25 @@ export const App: React.FC = () => {
                   <GitMerge size={16} /> Dynamic Route Studio
                 </button>
                 <button
+                  data-testid="admin-subtab-connectors"
+                  onClick={() => setAdminSubTab('CONNECTORS')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px 0',
+                    fontSize: '15px',
+                    fontWeight: adminSubTab === 'CONNECTORS' ? 700 : 500,
+                    color: adminSubTab === 'CONNECTORS' ? 'var(--primary, #2563eb)' : 'var(--text-muted, #64748b)',
+                    borderBottom: adminSubTab === 'CONNECTORS' ? '2px solid var(--primary, #2563eb)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <GitMerge size={16} /> Connectors & Topology
+                </button>
+                <button
                   onClick={() => setAdminSubTab('COMPONENTS')}
                   style={{
                     background: 'none',
@@ -635,9 +656,10 @@ export const App: React.FC = () => {
 
               {adminSubTab === 'ROUTES' && (
                 <button
+                  data-testid="open-topology-studio-header-btn"
                   onClick={() => {
-                    setEditingRoute(null);
-                    setActiveModal('PIPELINE_WIZARD');
+                    setTopologyStudioMode('EDIT');
+                    setAdminSubTab('CONNECTORS');
                   }}
                   style={{
                     display: 'inline-flex',
@@ -654,7 +676,7 @@ export const App: React.FC = () => {
                     boxShadow: '0 2px 4px rgba(37,99,235,0.2)'
                   }}
                 >
-                  <GitMerge size={14} /> Assemble Pipeline Wizard
+                  <GitMerge size={14} /> Open Route Topology DAG
                 </button>
               )}
             </div>
@@ -665,12 +687,13 @@ export const App: React.FC = () => {
                 routes={routes}
                 onToggleStatus={handleToggleRoute}
                 onEditRoute={(route) => {
-                  setEditingRoute(route);
-                  setActiveModal('PIPELINE_WIZARD');
+                  setActiveWorkspaceRouteId(route.routeId);
+                  setTopologyStudioMode('EDIT');
+                  setAdminSubTab('CONNECTORS');
                 }}
                 onCreateRoute={() => {
-                  setEditingRoute(null);
-                  setActiveModal('PIPELINE_WIZARD');
+                  setTopologyStudioMode('EDIT');
+                  setAdminSubTab('CONNECTORS');
                 }}
                 onViewWorkspace={(routeId) => {
                   setActiveWorkspaceRouteId(routeId);
@@ -683,6 +706,21 @@ export const App: React.FC = () => {
                     setActiveModal('EDITOR');
                   }
                 }}
+                onDesignTopology={(routeId) => {
+                  setActiveWorkspaceRouteId(routeId);
+                  setTopologyStudioMode('EDIT');
+                  setAdminSubTab('CONNECTORS');
+                }}
+              />
+            )}
+
+            {/* Dynamic Connectors & Route Topology DAG Canvas */}
+            {adminSubTab === 'CONNECTORS' && (
+              <AdminConnectorsAndTopologyStudio
+                routes={processRoutes}
+                selectedRouteId={activeWorkspaceRouteId || undefined}
+                onSelectRoute={(id) => setActiveWorkspaceRouteId(id)}
+                initialMode={topologyStudioMode}
               />
             )}
 

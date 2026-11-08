@@ -3,8 +3,8 @@ package com.bulkprocessor.config;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.slf4j.Logger;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -16,12 +16,14 @@ import com.bulkprocessor.storage.entity.BulkJobBatchEntity;
 import com.bulkprocessor.storage.entity.BulkJobEntity;
 import com.bulkprocessor.storage.entity.BulkRecordErrorEntity;
 import com.bulkprocessor.storage.entity.ComponentInstanceEntity;
+import com.bulkprocessor.storage.entity.ConnectorDefinitionEntity;
 import com.bulkprocessor.storage.entity.ProcessDefinitionEntity;
 import com.bulkprocessor.storage.entity.RouteConfigEntity;
 import com.bulkprocessor.storage.repository.BulkJobBatchRepository;
 import com.bulkprocessor.storage.repository.BulkJobRepository;
 import com.bulkprocessor.storage.repository.BulkRecordErrorRepository;
 import com.bulkprocessor.storage.repository.ComponentInstanceRepository;
+import com.bulkprocessor.storage.repository.ConnectorDefinitionRepository;
 import com.bulkprocessor.storage.repository.ProcessDefinitionRepository;
 import com.bulkprocessor.storage.repository.RouteConfigRepository;
 
@@ -39,6 +41,7 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
         private final RouteConfigRepository routeConfigRepository;
         private final ProcessDefinitionRepository processDefinitionRepository;
         private final ComponentInstanceRepository componentInstanceRepository;
+        private final ConnectorDefinitionRepository connectorDefinitionRepository;
         private final BulkJobRepository bulkJobRepository;
         private final BulkJobBatchRepository bulkJobBatchRepository;
         private final BulkRecordErrorRepository bulkRecordErrorRepository;
@@ -47,12 +50,14 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                         RouteConfigRepository routeConfigRepository,
                         ProcessDefinitionRepository processDefinitionRepository,
                         ComponentInstanceRepository componentInstanceRepository,
+                        ConnectorDefinitionRepository connectorDefinitionRepository,
                         BulkJobRepository bulkJobRepository,
                         BulkJobBatchRepository bulkJobBatchRepository,
                         BulkRecordErrorRepository bulkRecordErrorRepository) {
                 this.routeConfigRepository = routeConfigRepository;
                 this.processDefinitionRepository = processDefinitionRepository;
                 this.componentInstanceRepository = componentInstanceRepository;
+                this.connectorDefinitionRepository = connectorDefinitionRepository;
                 this.bulkJobRepository = bulkJobRepository;
                 this.bulkJobBatchRepository = bulkJobBatchRepository;
                 this.bulkRecordErrorRepository = bulkRecordErrorRepository;
@@ -61,10 +66,81 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
         @Override
         @Transactional
         public void run(ApplicationArguments args) {
+                seedConnectorDefinitions();
                 seedComponentInstances();
                 seedProcessesAndRoutes();
                 seedSampleJobsAndDiagnostics();
-                log.info("Enterprise routes, components, and seed jobs successfully initialized.");
+                log.info("Enterprise routes, components, connectors, and seed jobs successfully initialized.");
+        }
+
+        private void seedConnectorDefinitions() {
+                if (connectorDefinitionRepository.count() > 0) {
+                        return;
+                }
+
+                seedConnectorDef(
+                                "conn-def-csv",
+                                "CSV Ingestion Connector",
+                                "SOURCE",
+                                "START",
+                                "CSV",
+                                "High-throughput streaming CSV source supporting Manual Upload, AWS S3, and SFTP with dynamic field schema and type coercion.",
+                                "file-spreadsheet",
+                                false,
+                                "{\"properties\":[{\"key\":\"sourceType\",\"label\":\"CSV Source Type\",\"type\":\"select\",\"options\":[\"MANUAL_UPLOAD\",\"S3_BUCKET\",\"SFTP_SERVER\",\"LOCAL_DIRECTORY\"],\"defaultValue\":\"MANUAL_UPLOAD\",\"required\":true},{\"key\":\"s3Uri\",\"label\":\"S3 Location URI\",\"type\":\"string\",\"placeholder\":\"s3://my-enterprise-bucket/inbox/*.csv\",\"required\":false},{\"key\":\"delimiter\",\"label\":\"Field Delimiter\",\"type\":\"select\",\"options\":[\",\",\";\",\"\\t\",\"|\"],\"defaultValue\":\",\",\"required\":true},{\"key\":\"hasHeader\",\"label\":\"Has Header Row\",\"type\":\"boolean\",\"defaultValue\":true,\"required\":true},{\"key\":\"quoteChar\",\"label\":\"Quote Character\",\"type\":\"string\",\"defaultValue\":\"\\\"\",\"required\":false},{\"key\":\"charset\",\"label\":\"Encoding Charset\",\"type\":\"select\",\"options\":[\"UTF-8\",\"ISO-8859-1\",\"US-ASCII\"],\"defaultValue\":\"UTF-8\",\"required\":true},{\"key\":\"fields\",\"label\":\"CSV Schema Fields\",\"type\":\"fields_schema\",\"required\":true}]}");
+
+                seedConnectorDef(
+                                "conn-def-rest-json",
+                                "REST JSON Connector (Req & Res Pair)",
+                                "PROCESSOR",
+                                "MIDDLE",
+                                "REST_JSON",
+                                "Composite HTTP REST client instantiating paired Request and Response nodes for record enrichment, payload generation, and JSONPath extraction.",
+                                "globe",
+                                true,
+                                "{\"properties\":[{\"key\":\"method\",\"label\":\"HTTP Method\",\"type\":\"select\",\"options\":[\"GET\",\"POST\",\"PUT\",\"PATCH\",\"DELETE\"],\"defaultValue\":\"POST\",\"required\":true},{\"key\":\"endpointUrl\",\"label\":\"Endpoint URL\",\"type\":\"string\",\"placeholder\":\"https://api.internal.corp/v1/enrich/${id}\",\"required\":true},{\"key\":\"authType\",\"label\":\"Authentication\",\"type\":\"select\",\"options\":[\"NONE\",\"BEARER_TOKEN\",\"API_KEY_HEADER\",\"BASIC_AUTH\"],\"defaultValue\":\"NONE\",\"required\":true},{\"key\":\"headers\",\"label\":\"HTTP Headers\",\"type\":\"key_value\",\"required\":false},{\"key\":\"bodyTemplate\",\"label\":\"Request Body Template\",\"type\":\"string\",\"placeholder\":\"{\\\"customerId\\\": \\\"${id}\\\", \\\"email\\\": \\\"${email}\\\"}\",\"required\":false},{\"key\":\"timeoutMs\",\"label\":\"Timeout (ms)\",\"type\":\"number\",\"defaultValue\":5000,\"required\":true},{\"key\":\"responseExtractMap\",\"label\":\"JSONPath Field Extractions\",\"type\":\"key_value\",\"required\":false}]}");
+
+                seedConnectorDef(
+                                "conn-def-soap-xml",
+                                "SOAP XML Connector (Req & Res Pair)",
+                                "PROCESSOR",
+                                "MIDDLE",
+                                "SOAP_XML",
+                                "Composite SOAP Web Service client instantiating XML Request Envelope generator and XML Response XPath extractor.",
+                                "code-2",
+                                true,
+                                "{\"properties\":[{\"key\":\"wsdlUrl\",\"label\":\"WSDL or Service URL\",\"type\":\"string\",\"placeholder\":\"https://legacy.corp/ws/CustomerService?wsdl\",\"required\":true},{\"key\":\"soapAction\",\"label\":\"SOAPAction Header\",\"type\":\"string\",\"placeholder\":\"urn:ProcessCustomerRecord\",\"required\":false},{\"key\":\"soapVersion\",\"label\":\"SOAP Protocol Version\",\"type\":\"select\",\"options\":[\"1.1\",\"1.2\"],\"defaultValue\":\"1.1\",\"required\":true},{\"key\":\"envelopeTemplate\",\"label\":\"SOAP Request Envelope Template\",\"type\":\"string\",\"placeholder\":\"<soapenv:Envelope xmlns:soapenv=\\\"http://schemas.xmlsoap.org/soap/envelope/\\\"><soapenv:Body><CustomerRequest id=\\\"${id}\\\"/></soapenv:Body></soapenv:Envelope>\",\"required\":true},{\"key\":\"xpathExtractMap\",\"label\":\"XPath Field Extractions\",\"type\":\"key_value\",\"required\":false}]}");
+
+                seedConnectorDef(
+                                "conn-def-db-sink",
+                                "Database JDBC Sink Connector",
+                                "SINK",
+                                "END",
+                                "DATABASE",
+                                "Relational database writer with batch inserts, upsert support, and connection pooling.",
+                                "database",
+                                false,
+                                "{\"properties\":[{\"key\":\"jdbcUrl\",\"label\":\"JDBC Connection URL\",\"type\":\"string\",\"placeholder\":\"jdbc:postgresql://postgres:5432/bulk_analytics\",\"required\":true},{\"key\":\"targetTable\",\"label\":\"Target Table\",\"type\":\"string\",\"placeholder\":\"processed_records\",\"required\":true},{\"key\":\"batchSize\",\"label\":\"Batch Insert Size\",\"type\":\"number\",\"defaultValue\":1000,\"required\":true},{\"key\":\"upsertKey\",\"label\":\"Conflict / Upsert Key\",\"type\":\"string\",\"required\":false}]}");
+        }
+
+        private void seedConnectorDef(
+                        String id, String name, String category, String streamRole, String protocol,
+                        String description, String icon, boolean composite, String manifest) {
+                ConnectorDefinitionEntity entity = new ConnectorDefinitionEntity();
+                entity.setDefinitionId(id);
+                entity.setName(name);
+                entity.setCategory(category);
+                entity.setStreamRole(streamRole);
+                entity.setProtocol(protocol);
+                entity.setDescription(description);
+                entity.setIcon(icon);
+                entity.setComposite(composite);
+                entity.setPropertyManifest(manifest);
+                entity.setBuiltIn(true);
+                entity.setVersion(1);
+                entity.setCreatedAt(Instant.now());
+                entity.setUpdatedAt(Instant.now());
+                connectorDefinitionRepository.save(entity);
         }
 
         private void seedComponentInstances() {
