@@ -201,16 +201,28 @@ select:focus-visible {
   box-shadow: var(--shadow-sm);
 }
 
-/* Slide-out Glass Drawer Container - GPU Optimized */
+/* Centered Modal / Drawer Container - GPU Optimized */
 .liquid-glass-drawer {
   background: var(--bg-card);
-  border-left: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-drawer);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-modal);
   will-change: transform;
   transform: translateZ(0);
 }
 
-/* Eliminate nested multi-layer backdrop-filter inside the slide-out drawer to prevent GPU blur stalls */
+/* Modal Pop-up Animation for Centered Diagnostics Profile */
+@keyframes modalPopup {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateZ(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateZ(0);
+  }
+}
+
+/* Eliminate nested multi-layer backdrop-filter inside the modal to prevent GPU blur stalls */
 .liquid-glass-drawer .liquid-glass-card {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

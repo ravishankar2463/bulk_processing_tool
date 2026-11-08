@@ -32,7 +32,7 @@ import {
 } from '../../types/process';
 import { compressWithHeadroom } from '../../utils/headroomCompressor';
 import { generateDiagnosticsCsv } from '../../utils/csvSanitizer';
-import { fetchJobDiagnostics, resubmitDlqRecord } from '../../services/apiClient';
+import { fetchJobDiagnostics, resubmitDlqRecord, getImmediateJobDiagnostics } from '../../services/apiClient';
 
 export interface FileDiagnosticsModalProps {
   isOpen: boolean;
@@ -49,7 +49,11 @@ export const FileDiagnosticsModal: React.FC<FileDiagnosticsModalProps> = ({
   onClose,
   onExportCsv
 }) => {
-  const [internalDiagnostics, setInternalDiagnostics] = useState<FileDiagnosticsData | null>(null);
+  const [internalDiagnostics, setInternalDiagnostics] = useState<FileDiagnosticsData | null>(() => {
+    if (propDiagnostics) return propDiagnostics;
+    if (jobId) return getImmediateJobDiagnostics(jobId);
+    return null;
+  });
   const [useHeadroom, setUseHeadroom] = useState(false);
   const [activeInspectorTab, setActiveInspectorTab] = useState<'SCHEMA_TUPLE' | 'RAW_JSON'>('SCHEMA_TUPLE');
   const [selectedBatchIndex, setSelectedBatchIndex] = useState<number | null>(null);
@@ -85,8 +89,12 @@ export const FileDiagnosticsModal: React.FC<FileDiagnosticsModalProps> = ({
     if (propDiagnostics) {
       setInternalDiagnostics(propDiagnostics);
     } else if (jobId && isOpen) {
+      const immediate = getImmediateJobDiagnostics(jobId);
+      if (immediate && !internalDiagnostics) {
+        setInternalDiagnostics(immediate);
+      }
       fetchJobDiagnostics(jobId).then((data: FileDiagnosticsData) => {
-        setInternalDiagnostics(data);
+        if (data) setInternalDiagnostics(data);
       }).catch(() => {
         // Fallback
       });
@@ -365,37 +373,56 @@ export const FileDiagnosticsModal: React.FC<FileDiagnosticsModalProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'var(--bg-overlay, rgba(15, 23, 42, 0.65))',
-        backdropFilter: 'blur(4px)',
-        WebkitBackdropFilter: 'blur(4px)',
+        background: 'var(--bg-overlay, rgba(15, 23, 42, 0.72))',
+        backdropFilter: 'blur(3px)',
+        WebkitBackdropFilter: 'blur(3px)',
         zIndex: 1200,
         display: 'flex',
-        justifyContent: 'flex-end',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        overflowY: 'auto',
         transition: 'opacity var(--transition-fast)'
       }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      {/* Full-Height Liquid Glass Slide-Out Drawer with GPU Composite Layer */}
+      {/* Centered Liquid Glass Pop-Up Modal Container */}
       <div
         data-testid="file-diagnostics-modal"
         className="liquid-glass-drawer"
         style={{
           width: '100%',
-          maxWidth: '860px',
-          height: '100vh',
+          maxWidth: '1060px',
+          maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          overflowY: 'auto',
           padding: '24px',
           borderRadius: '16px',
+          background: 'var(--bg-card, #ffffff)',
+          border: '1px solid var(--border-subtle, #cbd5e1)',
+          boxShadow: 'var(--shadow-modal, 0 25px 50px -12px rgba(15, 23, 42, 0.45))',
+          overflowY: 'auto',
           willChange: 'transform',
           transform: 'translateZ(0)',
-          animation: 'slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+          animation: 'modalPopup 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Drawer Header with concentric geometry & breadcrumbs */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
+        {/* Modal Header with concentric geometry & breadcrumbs */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'flex-start', 
+            marginBottom: '20px', 
+            borderBottom: '1px solid var(--border-subtle, #e2e8f0)',
+            paddingBottom: '16px' 
+          }}
+        >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <span className="liquid-glass-pill" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', padding: '2px 10px' }}>
                 TIER 3 FULL FILE DRAWER
               </span>
@@ -412,25 +439,27 @@ export const FileDiagnosticsModal: React.FC<FileDiagnosticsModalProps> = ({
               <span>{processName}</span>
             </div>
           </div>
-          <button
-            data-testid="close-diagnostics-btn"
-            onClick={onClose}
-            aria-label="Close Diagnostics Modal"
-            style={{
-              background: 'var(--bg-card-subtle)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
-              padding: '6px',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all var(--transition-spring)'
-            }}
-          >
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              data-testid="close-diagnostics-btn"
+              onClick={onClose}
+              aria-label="Close Diagnostics Modal"
+              style={{
+                background: 'var(--bg-card, #ffffff)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '8px',
+                padding: '6px',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all var(--transition-spring)'
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* File Overall Lineage & Records KPI Strip */}
@@ -1499,6 +1528,84 @@ export const FileDiagnosticsModal: React.FC<FileDiagnosticsModalProps> = ({
               }}
             >
               <FileCode size={14} /> Download Full JSON Report
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Bottom Action Footer */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '16px 4px 4px',
+            marginTop: '20px',
+            borderTop: '1px solid var(--border-subtle, #e2e8f0)',
+            flexShrink: 0,
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}
+        >
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            Loom Thread Worker: <strong style={{ color: 'var(--primary)' }}>{diagnostics.metadata.loomThread}</strong>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              data-testid="modal-footer-export-csv"
+              onClick={handleExportCsv}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                background: 'var(--bg-card)',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Download size={13} /> Export CSV
+            </button>
+            <button
+              type="button"
+              data-testid="modal-footer-download-json"
+              onClick={handleDownloadJsonReport}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                background: 'var(--bg-card)',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <FileSpreadsheet size={13} /> JSON Report
+            </button>
+            <button
+              type="button"
+              data-testid="modal-footer-close-btn"
+              onClick={onClose}
+              style={{
+                padding: '6px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                background: 'var(--primary)',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Close
             </button>
           </div>
         </div>

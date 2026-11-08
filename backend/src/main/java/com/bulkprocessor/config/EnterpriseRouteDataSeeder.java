@@ -250,6 +250,21 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
         );
 
         seedJobWithDiagnostics(
+            "job-101",
+            "proc-customer-master",
+            "customers.csv",
+            4528190L,
+            "IN_FLIGHT",
+            "PROCESSING",
+            10000L,
+            6500L,
+            6480L,
+            20L,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "virtual-worker-101-loom-04"
+        );
+
+        seedJobWithDiagnostics(
             "job-cmo-002",
             "proc-customer-master",
             "customers_emea_legacy.csv",
@@ -357,39 +372,52 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
     }
 
     private void seedSampleErrors(String jobId) {
-        if (bulkRecordErrorRepository.findByJobId(jobId).isEmpty()) {
-            BulkRecordErrorEntity err1 = new BulkRecordErrorEntity();
-            err1.setJobId(jobId);
-            err1.setBatchId(jobId + "-batch-0");
-            err1.setSequenceNumber(42L);
-            err1.setStepName("DYNAMIC_VALIDATOR");
-            err1.setErrorCode("INVALID_EMAIL_SYNTAX");
-            err1.setErrorMessage("Email field does not conform to RFC 5322 address pattern");
-            err1.setRawPayload("{\"id\": \"CUST-0042\", \"name\": \"Marcus Aurelius\", \"email\": \"marcus.aurelius@rome\", \"region\": \"EMEA\", \"postal\": \"00184\"}");
-            err1.setCreatedAt(Instant.now());
-            bulkRecordErrorRepository.save(err1);
+        if (!bulkRecordErrorRepository.findByJobId(jobId).isEmpty()) {
+            return;
+        }
 
-            BulkRecordErrorEntity err2 = new BulkRecordErrorEntity();
-            err2.setJobId(jobId);
-            err2.setBatchId(jobId + "-batch-1");
-            err2.setSequenceNumber(189L);
-            err2.setStepName("DYNAMIC_VALIDATOR");
-            err2.setErrorCode("POSTAL_CODE_MISMATCH");
-            err2.setErrorMessage("Postal code format does not match country definition rules");
-            err2.setRawPayload("{\"id\": \"CUST-0189\", \"name\": \"Julia Agrippina\", \"email\": \"julia@palatine.it\", \"region\": \"EMEA\", \"postal\": \"INVALID_ZIP\"}");
-            err2.setCreatedAt(Instant.now());
-            bulkRecordErrorRepository.save(err2);
+        record SeedErrorDef(
+            int batchIdx,
+            long seq,
+            String code,
+            String msg,
+            String rawPayload
+        ) {}
 
-            BulkRecordErrorEntity err3 = new BulkRecordErrorEntity();
-            err3.setJobId(jobId);
-            err3.setBatchId(jobId + "-batch-2");
-            err3.setSequenceNumber(312L);
-            err3.setStepName("DYNAMIC_VALIDATOR");
-            err3.setErrorCode("DUPLICATE_TAX_IDENTIFIER");
-            err3.setErrorMessage("Tax registration identifier is already bound to active enterprise entity");
-            err3.setRawPayload("{\"id\": \"CUST-0312\", \"name\": \"Lucius Seneca\", \"email\": \"seneca@cordoba.es\", \"region\": \"EMEA\", \"postal\": \"14001\"}");
-            err3.setCreatedAt(Instant.now());
-            bulkRecordErrorRepository.save(err3);
+        List<SeedErrorDef> defs = List.of(
+            new SeedErrorDef(0, 42L, "INVALID_EMAIL_SYNTAX", "Email field does not conform to RFC 5322 address pattern", "{\"id\": \"CUST-0042\", \"name\": \"Marcus Aurelius\", \"email\": \"marcus.aurelius@rome\", \"region\": \"EMEA\", \"postal\": \"00184\"}"),
+            new SeedErrorDef(1, 189L, "POSTAL_CODE_MISMATCH", "Postal code format does not match country definition rules", "{\"id\": \"CUST-0189\", \"name\": \"Julia Agrippina\", \"email\": \"julia@palatine.it\", \"region\": \"EMEA\", \"postal\": \"INVALID_ZIP\"}"),
+            new SeedErrorDef(2, 312L, "DUPLICATE_TAX_IDENTIFIER", "Tax registration identifier is already bound to active enterprise entity", "{\"id\": \"CUST-0312\", \"name\": \"Lucius Seneca\", \"email\": \"seneca@cordoba.es\", \"region\": \"EMEA\", \"postal\": \"14001\"}"),
+            new SeedErrorDef(1, 520L, "INVALID_TAX_ID", "Tax identification number failed mod-11 checksum validation", "{\"id\": \"CUST-0520\", \"name\": \"Tiberius Gracchus\", \"email\": \"tiberius@rome.gov\", \"region\": \"EMEA\", \"postal\": \"00185\", \"taxId\": \"XX-999-00\"}"),
+            new SeedErrorDef(1, 545L, "MISSING_MANDATORY_FIELD", "Mandatory field \"company_registration\" is missing", "{\"id\": \"CUST-0545\", \"name\": \"Gaius Marius\", \"email\": \"marius@consul.it\", \"region\": \"EMEA\", \"postal\": \"00186\"}"),
+            new SeedErrorDef(1, 602L, "AMOUNT_EXCEEDS_LIMIT", "Credit authorization limit exceeds tier maximum ($500,000)", "{\"id\": \"CUST-0602\", \"name\": \"Crassus Wealth Management\", \"email\": \"crassus@wealth.it\", \"region\": \"EMEA\", \"postal\": \"00187\", \"creditLimit\": 750000}"),
+            new SeedErrorDef(1, 680L, "MALFORMED_PHONE_NUMBER", "Phone number does not match E.164 international standard", "{\"id\": \"CUST-0680\", \"name\": \"Pompey Logistics\", \"email\": \"pompey@orient.gr\", \"region\": \"EMEA\", \"postal\": \"10431\", \"phone\": \"123-abc-phone\"}"),
+            new SeedErrorDef(1, 715L, "INVALID_EMAIL_SYNTAX", "Email address contains illegal unicode whitespace characters", "{\"id\": \"CUST-0715\", \"name\": \"Cornelia Scipio\", \"email\": \"cornelia @heritage.org\", \"region\": \"EMEA\", \"postal\": \"00188\"}"),
+            new SeedErrorDef(1, 890L, "POSTAL_CODE_MISMATCH", "ZIP code length mismatch for jurisdiction US", "{\"id\": \"CUST-0890\", \"name\": \"Cato Global Trading\", \"email\": \"cato@senate.gov\", \"region\": \"NA\", \"postal\": \"9410\"}"),
+            new SeedErrorDef(2, 1045L, "DUPLICATE_TAX_IDENTIFIER", "Tax identifier already registered under another active account", "{\"id\": \"CUST-1045\", \"name\": \"Scipio Africanus\", \"email\": \"scipio@zama.tn\", \"region\": \"EMEA\", \"postal\": \"2036\", \"taxId\": \"TN-888-12\"}"),
+            new SeedErrorDef(2, 1120L, "UNRESOLVED_CURRENCY_CODE", "Currency code \"USDT\" is not recognized in ISO-4217", "{\"id\": \"CUST-1120\", \"name\": \"Aeneas Maritime\", \"email\": \"aeneas@troy.org\", \"region\": \"EMEA\", \"postal\": \"17010\", \"currency\": \"USDT\"}"),
+            new SeedErrorDef(2, 1250L, "EXPIRED_TIMESTAMP", "Transaction timestamp is older than permitted SLA (90 days)", "{\"id\": \"CUST-1250\", \"name\": \"Brutus & Co\", \"email\": \"brutus@republic.org\", \"region\": \"EMEA\", \"postal\": \"00189\", \"txDate\": \"2023-01-01\"}"),
+            new SeedErrorDef(2, 1310L, "INVALID_COUNTRY_ISO", "Country code \"GBR\" must be 2-letter ISO 3166-1 alpha-2", "{\"id\": \"CUST-1310\", \"name\": \"Hadrian Holdings\", \"email\": \"hadrian@wall.co.uk\", \"region\": \"EMEA\", \"postal\": \"NE46\", \"country\": \"GBR\"}"),
+            new SeedErrorDef(2, 1450L, "MISSING_MANDATORY_FIELD", "Mandatory field \"billing_contact\" cannot be null", "{\"id\": \"CUST-1450\", \"name\": \"Trajan Infrastructure\", \"email\": \"trajan@column.it\", \"region\": \"EMEA\", \"postal\": \"00187\"}"),
+            new SeedErrorDef(4, 2050L, "INVALID_EMAIL_SYNTAX", "Top-level domain missing in email address", "{\"id\": \"CUST-2050\", \"name\": \"Vespasian Media\", \"email\": \"vespasian@colosseum\", \"region\": \"EMEA\", \"postal\": \"00184\"}"),
+            new SeedErrorDef(4, 2110L, "BLOCKED_SANCTION_ENTITY", "Entity name matches designated sanctions watch list", "{\"id\": \"CUST-2110\", \"name\": \"Caligula Entertainment Corp\", \"email\": \"caligula@palace.it\", \"region\": \"EMEA\", \"postal\": \"00186\"}"),
+            new SeedErrorDef(4, 2180L, "POSTAL_CODE_MISMATCH", "Postal code alphanumeric characters invalid for Germany", "{\"id\": \"CUST-2180\", \"name\": \"Arminius Minerals GmbH\", \"email\": \"arminius@teutoburg.de\", \"region\": \"EMEA\", \"postal\": \"GER-999\"}"),
+            new SeedErrorDef(4, 2240L, "INVALID_TAX_ID", "European VAT number prefix does not match country code", "{\"id\": \"CUST-2240\", \"name\": \"Claudius Agrippa\", \"email\": \"claudius@lyon.fr\", \"region\": \"EMEA\", \"postal\": \"69001\", \"vatNumber\": \"ES99887766\"}"),
+            new SeedErrorDef(4, 2315L, "MALFORMED_PHONE_NUMBER", "Area code not recognized in North American Numbering Plan", "{\"id\": \"CUST-2315\", \"name\": \"Agrippa Tech Labs\", \"email\": \"agrippa@pantheon.org\", \"region\": \"NA\", \"postal\": \"94016\", \"phone\": \"000-111-2222\"}"),
+            new SeedErrorDef(4, 2490L, "DUPLICATE_RECORD_KEY", "Natural key collision on customer_account_id", "{\"id\": \"CUST-2490\", \"name\": \"Constantine Imperial\", \"email\": \"constantine@byzantium.org\", \"region\": \"EMEA\", \"postal\": \"34122\", \"accountKey\": \"ACC-0042\"}")
+        );
+
+        for (SeedErrorDef def : defs) {
+            BulkRecordErrorEntity entity = new BulkRecordErrorEntity();
+            entity.setJobId(jobId);
+            entity.setBatchId(jobId + "-batch-" + def.batchIdx());
+            entity.setSequenceNumber(def.seq());
+            entity.setStepName("val-customer-kyc");
+            entity.setErrorCode(def.code());
+            entity.setErrorMessage(def.msg());
+            entity.setRawPayload(def.rawPayload());
+            entity.setCreatedAt(Instant.now());
+            bulkRecordErrorRepository.save(entity);
         }
     }
 }

@@ -33,6 +33,7 @@ import {
   fetchCatalogRoutes, 
   fetchProcessJobs, 
   fetchJobDiagnostics, 
+  getImmediateJobDiagnostics,
   fetchComponents,
   saveComponent,
   fetchDlqErrors,
@@ -255,9 +256,23 @@ export const App: React.FC = () => {
     }).catch(() => {});
   }, []);
 
+  const handleInspectDiagnostics = (jobId: string) => {
+    setDiagnosticsJobId(jobId);
+    const immediate = getImmediateJobDiagnostics(jobId);
+    if (immediate) {
+      setCurrentDiagnostics(immediate);
+    }
+  };
+
   useEffect(() => {
     if (diagnosticsJobId) {
-      fetchJobDiagnostics(diagnosticsJobId).then(diag => setCurrentDiagnostics(diag)).catch(() => {});
+      const immediate = getImmediateJobDiagnostics(diagnosticsJobId);
+      if (immediate && !currentDiagnostics) {
+        setCurrentDiagnostics(immediate);
+      }
+      fetchJobDiagnostics(diagnosticsJobId).then(diag => {
+        if (diag) setCurrentDiagnostics(diag);
+      }).catch(() => {});
     } else {
       setCurrentDiagnostics(null);
     }
@@ -285,7 +300,7 @@ export const App: React.FC = () => {
   };
 
   const handleDownloadReport = (jobId: string) => {
-    setDiagnosticsJobId(jobId);
+    handleInspectDiagnostics(jobId);
   };
 
   // Admin Actions
@@ -657,7 +672,7 @@ export const App: React.FC = () => {
                 handleDownloadReport(jobId);
               }
             }}
-            onInspectFile={(jobId) => setDiagnosticsJobId(jobId)}
+            onInspectFile={handleInspectDiagnostics}
           />
         ) : (
           <>
@@ -678,7 +693,7 @@ export const App: React.FC = () => {
                     onSelectRoute={(routeId) => setActiveWorkspaceRouteId(routeId)}
                     onDownloadReport={handleDownloadReport}
                     onUploadNew={() => setActiveModal('UPLOAD')}
-                    onInspectErrors={(jobId) => setDiagnosticsJobId(jobId)}
+                    onInspectErrors={handleInspectDiagnostics}
                   />
                 )}
               </div>
@@ -980,7 +995,7 @@ export const App: React.FC = () => {
                     errors={dlqErrors}
                     onResubmit={handleResubmitDlq}
                     onRefresh={() => {}}
-                    onInspectJob={(jobId) => setDiagnosticsJobId(jobId)}
+                    onInspectJob={handleInspectDiagnostics}
                   />
                 )}
               </div>
