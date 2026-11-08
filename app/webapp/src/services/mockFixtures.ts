@@ -1907,7 +1907,7 @@ export const MOCK_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
   },
   {
     definitionId: 'conn-def-composite-subflow',
-    name: 'Composite Capsule (Sub-DAG Collection)',
+    name: 'Sub-DAG Container Node',
     category: 'PROCESSOR',
     streamRole: 'MIDDLE',
     protocol: 'COMPOSITE_SUBFLOW',
@@ -1916,7 +1916,7 @@ export const MOCK_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     composite: true,
     propertyManifest: JSON.stringify({
       properties: [
-        { key: 'serviceName', label: 'Capsule Collection Name', type: 'string', defaultValue: 'REST Customer Enrichment Capsule', required: true }
+        { key: 'serviceName', label: 'Sub-DAG Name', type: 'string', defaultValue: 'REST Customer Enrichment Sub-DAG', required: true }
       ]
     }),
     builtIn: true,

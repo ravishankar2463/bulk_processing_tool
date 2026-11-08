@@ -3,10 +3,7 @@ package com.bulkprocessor.benchmark;
 import com.bulkprocessor.core.api.FileBatch;
 import com.bulkprocessor.core.api.JobContext;
 import com.bulkprocessor.core.api.RecordItem;
-import com.bulkprocessor.core.api.StepResult;
 import com.bulkprocessor.core.dynamic.DynamicValidatorScript;
-import com.bulkprocessor.core.pipeline.PipelineRecordResult;
-import com.bulkprocessor.core.pipeline.ProcessPipeline;
 import com.bulkprocessor.dynamic.compiler.DynamicScriptCompiler;
 import com.bulkprocessor.splitter.batch.DynamicBatchChunker;
 import com.bulkprocessor.splitter.csv.CsvSplitterConfig;
@@ -14,7 +11,6 @@ import com.bulkprocessor.splitter.csv.StreamingCsvSplitter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;

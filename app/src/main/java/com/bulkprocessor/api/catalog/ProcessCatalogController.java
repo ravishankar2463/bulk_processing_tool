@@ -4,7 +4,6 @@ import com.bulkprocessor.dto.FieldMappingDto;
 import com.bulkprocessor.dto.PipelineStepConfigDto;
 import com.bulkprocessor.dto.ProcessRouteDto;
 import com.bulkprocessor.ingestion.camel.DynamicRouteManager;
-import com.bulkprocessor.storage.entity.BulkJobEntity;
 import com.bulkprocessor.storage.entity.RouteConfigEntity;
 import com.bulkprocessor.storage.repository.BulkJobRepository;
 import com.bulkprocessor.storage.repository.RouteConfigRepository;

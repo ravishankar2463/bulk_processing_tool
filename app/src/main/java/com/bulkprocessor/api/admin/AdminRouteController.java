@@ -3,8 +3,6 @@ package com.bulkprocessor.api.admin;
 import com.bulkprocessor.ingestion.camel.DynamicRouteManager;
 import com.bulkprocessor.storage.entity.RouteConfigEntity;
 import com.bulkprocessor.storage.repository.RouteConfigRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,8 +14,6 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/routes")
 @CrossOrigin(origins = "*")
 public class AdminRouteController {
-
-    private static final Logger log = LoggerFactory.getLogger(AdminRouteController.class);
 
     private final RouteConfigRepository routeConfigRepository;
     private final DynamicRouteManager dynamicRouteManager;

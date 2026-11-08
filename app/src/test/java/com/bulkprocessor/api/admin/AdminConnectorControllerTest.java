@@ -4,8 +4,6 @@ import com.bulkprocessor.BulkProcessorApplication;
 import com.bulkprocessor.dto.ConnectorDefinitionDto;
 import com.bulkprocessor.dto.ConnectorDryRunRequestDto;
 import com.bulkprocessor.dto.ConnectorInstanceDto;
-import com.bulkprocessor.storage.repository.ConnectorDefinitionRepository;
-import com.bulkprocessor.storage.repository.ConnectorInstanceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,12 +31,6 @@ class AdminConnectorControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    @Autowired
-    private ConnectorDefinitionRepository definitionRepository;
-
-    @Autowired
-    private ConnectorInstanceRepository instanceRepository;
 
     @Test
     @DisplayName("Fetches connector definitions catalog including built-ins")

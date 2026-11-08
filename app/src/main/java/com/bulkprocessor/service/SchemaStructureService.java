@@ -8,11 +8,8 @@ import org.springframework.stereotype.Service;
 
 import com.bulkprocessor.dto.SchemaParseRequestDto;
 import com.bulkprocessor.dto.SchemaParseResultDto;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Service to parse JSON Schema documents or raw JSON sample payloads

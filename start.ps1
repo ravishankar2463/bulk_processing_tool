@@ -1,3 +1,6 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+param()
+
 # start.ps1
 # Launches the Enterprise Bulk Processor in a dedicated new terminal window.
 # When that terminal is closed, all backend, frontend, and docker containers are automatically brought down.

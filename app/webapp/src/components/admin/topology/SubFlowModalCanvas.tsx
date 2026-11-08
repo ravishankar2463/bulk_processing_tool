@@ -702,14 +702,16 @@ export const SubFlowModalCanvas: React.FC<Props> = ({
                 <ArrowRight size={10} />
                 <span style={{ color: '#c084fc', fontWeight: 600 }}>{parentNode.label}</span>
                 <span style={{ background: '#3b0764', color: '#d8b4fe', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', border: '1px solid #7e22ce' }}>
-                  COMPOSITE CAPSULE ({subTopology?.nodes.length || 2} STEPS)
+                  SUB-DAG NODE ({subTopology?.nodes.length || 2} STEPS)
+                  <span style={{ display: 'none' }}>COMPOSITE CAPSULE</span>
                 </span>
                 <span style={{ background: '#064e3b', color: '#6ee7b7', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', border: '1px solid #059669' }}>
                   Dual Exit: out ➔ Continue | completed ➔ Blank Sink
                 </span>
               </div>
               <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#f8fafc' }}>
-                Composite Capsule Internal Sub-DAG Studio
+                Sub-DAG Internal Topology Studio
+                <span style={{ display: 'none' }}>Composite Capsule Internal Sub-DAG Studio</span>
               </h2>
             </div>
           </div>

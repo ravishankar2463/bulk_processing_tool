@@ -9,7 +9,6 @@ import com.bulkprocessor.storage.entity.ConnectorDefinitionEntity;
 import com.bulkprocessor.storage.entity.ConnectorInstanceEntity;
 import com.bulkprocessor.storage.repository.ConnectorDefinitionRepository;
 import com.bulkprocessor.storage.repository.ConnectorInstanceRepository;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

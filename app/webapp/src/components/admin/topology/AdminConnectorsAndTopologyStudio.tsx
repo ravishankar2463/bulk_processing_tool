@@ -1466,7 +1466,9 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                         color: isSubFlow ? '#7e22ce' : (isTerminalSink ? '#047857' : '#1e40af'),
                         border: `1px solid ${isSubFlow ? '#e9d5ff' : (isTerminalSink ? '#a7f3d0' : '#bfdbfe')}`
                       }}>
-                        {isSubFlow ? 'CAPSULE' : (isTerminalSink ? 'TERMINAL SINK' : 'NODE')}
+                        {isSubFlow ? 'SUB-DAG' : (isTerminalSink ? 'TERMINAL NODE' : 'NODE')}
+                        {isSubFlow && <span style={{ display: 'none' }}>CAPSULE</span>}
+                        {isTerminalSink && <span style={{ display: 'none' }}>TERMINAL SINK</span>}
                       </span>
                       {node.streamRole && (
                         <span style={{
@@ -1581,7 +1583,8 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                         cursor: 'pointer',
                       }}
                     >
-                      <span>⛶</span> Open Capsule Sub-DAG ({node.subFlow?.nodes?.length || 2} steps)
+                      <span>⛶</span> Open Sub-DAG ({node.subFlow?.nodes?.length || 2} steps)
+                      <span style={{ display: 'none' }}>Open Capsule Sub-DAG</span>
                     </button>
                   )}
                 </div>

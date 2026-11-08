@@ -1,8 +1,5 @@
 package com.bulkprocessor.service;
 
-import com.bulkprocessor.core.api.FileBatch;
-import com.bulkprocessor.core.api.JobContext;
-import com.bulkprocessor.core.api.RecordItem;
 import com.bulkprocessor.splitter.batch.DynamicBatchChunker;
 import com.bulkprocessor.splitter.csv.CsvSplitterConfig;
 import com.bulkprocessor.splitter.csv.StreamingCsvSplitter;
@@ -16,7 +13,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;

@@ -7,8 +7,6 @@ import java.util.concurrent.*;
 import java.util.regex.Pattern;
 
 import org.codehaus.janino.ClassBodyEvaluator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.bulkprocessor.dto.ScriptValidationResultDto;
@@ -20,8 +18,6 @@ import com.bulkprocessor.dynamic.sandbox.SecurityViolationException;
  */
 @Service
 public class ConnectorScriptEngine {
-
-    private static final Logger log = LoggerFactory.getLogger(ConnectorScriptEngine.class);
 
     public interface ConnectorHook {
         Map<String, Object> execute(
