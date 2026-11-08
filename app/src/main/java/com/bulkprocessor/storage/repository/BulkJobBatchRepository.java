@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface BulkJobBatchRepository extends JpaRepository<BulkJobBatchEntity, String> {
     List<BulkJobBatchEntity> findByJobIdOrderByBatchIndexAsc(String jobId);
+    void deleteByJobId(String jobId);
 }
 

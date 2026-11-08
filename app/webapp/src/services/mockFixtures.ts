@@ -185,7 +185,8 @@ export const MOCK_ROUTES: ProcessRoute[] = [
     activeFilesInFlight: 2,
     aggregateThroughputRecordsPerSec: 1450.5,
     successRatePercent: 99.4,
-    pipelineSteps: DEFAULT_PIPELINE_STEPS
+    pipelineSteps: DEFAULT_PIPELINE_STEPS,
+    retentionDays: 30
   },
   {
     id: 'order-fulfillment-stream',
@@ -196,7 +197,8 @@ export const MOCK_ROUTES: ProcessRoute[] = [
     activeFilesInFlight: 5,
     aggregateThroughputRecordsPerSec: 3280.0,
     successRatePercent: 99.8,
-    pipelineSteps: DEFAULT_PIPELINE_STEPS
+    pipelineSteps: DEFAULT_PIPELINE_STEPS,
+    retentionDays: 14
   },
   {
     id: 'financial-reconciliation',
@@ -207,7 +209,8 @@ export const MOCK_ROUTES: ProcessRoute[] = [
     activeFilesInFlight: 0,
     aggregateThroughputRecordsPerSec: 850.2,
     successRatePercent: 96.7,
-    pipelineSteps: DEFAULT_PIPELINE_STEPS
+    pipelineSteps: DEFAULT_PIPELINE_STEPS,
+    retentionDays: 60
   }
 ];
 
@@ -1880,6 +1883,62 @@ export const MOCK_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     }),
     builtIn: true,
     version: 1
+  },
+  {
+    definitionId: 'conn-def-retry-gateway',
+    name: 'Retry & Delay Gateway',
+    category: 'PROCESSOR',
+    streamRole: 'MIDDLE',
+    protocol: 'RETRY_GATEWAY',
+    description: 'Resilience router implementing exponential backoff, jittered retries, and exhaustion routing to Dead Letter Queues (DLQ).',
+    icon: 'refresh-cw',
+    composite: false,
+    propertyManifest: JSON.stringify({
+      properties: [
+        { key: 'maxRetries', label: 'Max Retry Attempts', type: 'number', defaultValue: 3, required: true },
+        { key: 'initialDelayMs', label: 'Initial Delay (ms)', type: 'number', defaultValue: 1000, required: true },
+        { key: 'backoffMultiplier', label: 'Backoff Multiplier', type: 'number', defaultValue: 2.0, required: true },
+        { key: 'maxDelayMs', label: 'Max Delay Ceiling (ms)', type: 'number', defaultValue: 30000, required: true },
+        { key: 'jitter', label: 'Add Randomized Jitter', type: 'boolean', defaultValue: true, required: false }
+      ]
+    }),
+    builtIn: true,
+    version: 1
+  },
+  {
+    definitionId: 'conn-def-composite-subflow',
+    name: 'Composite Capsule (Sub-DAG Collection)',
+    category: 'PROCESSOR',
+    streamRole: 'MIDDLE',
+    protocol: 'COMPOSITE_SUBFLOW',
+    description: 'Encapsulated sub-DAG container bundling multi-step processing, branch decision routing, and embedded Janino code hooks with dual exit ports (out & completed).',
+    icon: 'layers',
+    composite: true,
+    propertyManifest: JSON.stringify({
+      properties: [
+        { key: 'serviceName', label: 'Capsule Collection Name', type: 'string', defaultValue: 'REST Customer Enrichment Capsule', required: true }
+      ]
+    }),
+    builtIn: true,
+    version: 1
+  },
+  {
+    definitionId: 'conn-def-terminal-sink',
+    name: 'Terminal Completion Sink',
+    category: 'SINK',
+    streamRole: 'END',
+    protocol: 'TERMINAL_SINK',
+    description: 'Blank terminal completion sink that consumes incoming records, seals the file stream, and marks file execution as COMPLETED (100% progress) with zero external I/O.',
+    icon: 'check-circle',
+    composite: false,
+    propertyManifest: JSON.stringify({
+      properties: [
+        { key: 'sealStream', label: 'Seal Stream', type: 'boolean', defaultValue: true, required: true },
+        { key: 'markCompleted', label: 'Mark 100% Completed', type: 'boolean', defaultValue: true, required: true }
+      ]
+    }),
+    builtIn: true,
+    version: 1
   }
 ];
 
@@ -1955,39 +2014,116 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
         config: { chunkSize: 500 }
       },
       {
-        id: 'node-rest-req',
+        id: 'node-rest-composite',
         type: 'CONNECTOR',
-        refId: 'conn-def-rest-json',
-        label: 'JSON Request Connector',
-        subLabel: 'POST /api/kyc/verify',
+        refId: 'conn-def-composite-subflow',
+        label: 'Customer Enrichment Capsule',
+        subLabel: 'Composite Capsule (2 Steps: Req ➔ Res)',
         category: 'PROCESSOR',
         streamRole: 'MIDDLE',
-        x: 640,
-        y: 80,
+        x: 680,
+        y: 120,
         inputPorts: ['in_records'],
-        outputPorts: ['out_http_req'],
+        outputPorts: ['pass', 'out', 'completed', 'fail'],
+        branchingPorts: [
+          {
+            portId: 'out',
+            label: 'PASS / Verified (Continue)',
+            color: '#22c55e',
+            conditionType: 'STATUS_CODE',
+            conditionExpr: '200..299',
+            actionType: 'CONTINUE'
+          },
+          {
+            portId: 'completed',
+            label: 'Early Complete (Blank Sink)',
+            color: '#10b981',
+            conditionType: 'EXPRESSION',
+            conditionExpr: 'earlyTermination == true',
+            actionType: 'CONTINUE'
+          },
+          {
+            portId: 'fail',
+            label: 'FAIL (Error / DLQ)',
+            color: '#ef4444',
+            conditionType: 'STATUS_CODE',
+            conditionExpr: '400..599',
+            actionType: 'FAIL_RECORD'
+          }
+        ],
+        subFlow: {
+          topologyId: 'subflow-node-rest-composite',
+          routeId: 'node-rest-composite',
+          nodes: [
+            {
+              id: 'sub-rest-req',
+              type: 'CONNECTOR',
+              refId: 'conn-def-rest-json',
+              label: 'JSON Request Connector',
+              subLabel: 'POST /api/kyc/verify',
+              category: 'PROCESSOR',
+              streamRole: 'START',
+              x: 120,
+              y: 140,
+              inputPorts: ['in_records'],
+              outputPorts: ['out_http_req'],
+              config: {
+                method: 'POST',
+                endpointUrl: 'https://api.internal.corp/v1/kyc/verify',
+                authType: 'BEARER_TOKEN',
+                headers: { 'Content-Type': 'application/json' },
+                bodyTemplate: '{\n  "customerId": "${id}",\n  "email": "${email}"\n}',
+                timeoutMs: 3000,
+                customCode: '// Pre-Request Janino Hook\nMap<String, Object> output = new HashMap<>(input);\noutput.put("requestedAt", System.currentTimeMillis());\nreturn output;'
+              }
+            },
+            {
+              id: 'sub-rest-res',
+              type: 'CONNECTOR',
+              refId: 'conn-def-rest-json',
+              label: 'JSON Response Connector',
+              subLabel: 'JSONPath Extractor',
+              category: 'PROCESSOR',
+              streamRole: 'MIDDLE',
+              x: 480,
+              y: 140,
+              inputPorts: ['in_http_req'],
+              outputPorts: ['pass', 'fail'],
+              branchingPorts: [
+                {
+                  portId: 'pass',
+                  label: 'PASS (2xx OK)',
+                  color: '#22c55e',
+                  conditionType: 'STATUS_CODE',
+                  conditionExpr: '200..299',
+                  actionType: 'CONTINUE'
+                },
+                {
+                  portId: 'fail',
+                  label: 'FAIL (Error / DLQ)',
+                  color: '#ef4444',
+                  conditionType: 'STATUS_CODE',
+                  conditionExpr: '400..599',
+                  actionType: 'FAIL_RECORD'
+                }
+              ],
+              config: {
+                expectedStatus: [200, 201],
+                extractMappings: { 'kyc_status': '$.data.status', 'risk_score': '$.data.score' },
+                customCode: '// Post-Response Janino Transformation\nMap<String, Object> output = new HashMap<>(input);\noutput.put("enrichmentStatus", "VERIFIED");\nreturn output;'
+              }
+            }
+          ],
+          edges: [
+            { id: 'sub-edge-1', fromNodeId: 'sub-rest-req', fromPort: 'out_http_req', toNodeId: 'sub-rest-res', toPort: 'in_http_req' }
+          ],
+          version: 1
+        },
         config: {
+          isSubFlow: true,
           method: 'POST',
           endpointUrl: 'https://api.internal.corp/v1/kyc/verify',
-          authType: 'BEARER_TOKEN',
-          timeoutMs: 3000
-        }
-      },
-      {
-        id: 'node-rest-res',
-        type: 'CONNECTOR',
-        refId: 'conn-def-rest-json',
-        label: 'JSON Response Connector',
-        subLabel: 'JSONPath Extractor',
-        category: 'PROCESSOR',
-        streamRole: 'MIDDLE',
-        x: 920,
-        y: 80,
-        inputPorts: ['in_http_req'],
-        outputPorts: ['out_enriched'],
-        config: {
-          expectedStatus: [200, 201],
-          extractMappings: { 'kyc_status': '$.data.status', 'risk_score': '$.data.score' }
+          authType: 'BEARER_TOKEN'
         }
       },
       {
@@ -1998,7 +2134,7 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
         subLabel: 'RFC 5322 Email Rule',
         category: 'VALIDATOR',
         streamRole: 'MIDDLE',
-        x: 1200,
+        x: 1040,
         y: 120,
         inputPorts: ['in_enriched'],
         outputPorts: ['out_validated'],
@@ -2012,19 +2148,33 @@ let mockTopologiesStore: Record<string, RouteTopology> = {
         subLabel: 'Customer Analytics DB',
         category: 'SINK',
         streamRole: 'END',
-        x: 1480,
+        x: 1380,
         y: 120,
         inputPorts: ['in_validated'],
         outputPorts: [],
         config: { targetTable: 'customer_master', batchSize: 1000 }
+      },
+      {
+        id: 'node-terminal-sink',
+        type: 'CONNECTOR',
+        refId: 'conn-def-terminal-sink',
+        label: 'Terminal Completion Sink',
+        subLabel: 'Blank End Node (Seals Stream)',
+        category: 'SINK',
+        streamRole: 'END',
+        x: 1040,
+        y: 260,
+        inputPorts: ['in_stream'],
+        outputPorts: [],
+        config: { sealStream: true, markCompleted: true }
       }
     ],
     edges: [
       { id: 'edge-1', fromNodeId: 'node-csv-src', fromPort: 'out_stream', toNodeId: 'node-split-comp', toPort: 'in_stream' },
-      { id: 'edge-2', fromNodeId: 'node-split-comp', fromPort: 'out_records', toNodeId: 'node-rest-req', toPort: 'in_records' },
-      { id: 'edge-3', fromNodeId: 'node-rest-req', fromPort: 'out_http_req', toNodeId: 'node-rest-res', toPort: 'in_http_req' },
-      { id: 'edge-4', fromNodeId: 'node-rest-res', fromPort: 'out_enriched', toNodeId: 'node-val-comp', toPort: 'in_enriched' },
-      { id: 'edge-5', fromNodeId: 'node-val-comp', fromPort: 'out_validated', toNodeId: 'node-sink-conn', toPort: 'in_validated' }
+      { id: 'edge-2', fromNodeId: 'node-split-comp', fromPort: 'out_records', toNodeId: 'node-rest-composite', toPort: 'in_records' },
+      { id: 'edge-3', fromNodeId: 'node-rest-composite', fromPort: 'pass', toNodeId: 'node-val-comp', toPort: 'in_enriched' },
+      { id: 'edge-4', fromNodeId: 'node-val-comp', fromPort: 'out_validated', toNodeId: 'node-sink-conn', toPort: 'in_validated' },
+      { id: 'edge-5', fromNodeId: 'node-rest-composite', fromPort: 'completed', toNodeId: 'node-terminal-sink', toPort: 'in_stream' }
     ],
     version: 1
   }
@@ -2337,6 +2487,74 @@ export function generateMockXPathMappings(request: { sampleXml: string }): XPath
     detectedElements: ['Status', 'AccountId', 'Balance']
   };
 }
+
+export function runMockHousekeeping(routeId: string): import('../types/process').HousekeepingReport {
+  return {
+    routeId,
+    retentionDays: 30,
+    cutoffTimestamp: new Date(Date.now() - 30 * 86400000).toISOString(),
+    purgedJobsCount: 4,
+    purgedErrorsCount: 18,
+    purgedBatchChunksCount: 8,
+    purgedBytes: 312500,
+    executedAt: new Date().toISOString()
+  };
+}
+
+export function generateMockTraversalHistory(recordId: string, isFailed = false): import('../types/process').RecordTraversalStep[] {
+  return [
+    {
+      nodeId: 'node-source-csv',
+      nodeName: 'CSV Ingestion Connector',
+      timestamp: '2026-11-08T23:50:01.120Z',
+      status: 'SUCCESS',
+      stepDetails: 'Row parsed and validated against header schema'
+    },
+    {
+      nodeId: 'node-rest-composite',
+      nodeName: 'Customer Enrichment Capsule',
+      timestamp: '2026-11-08T23:50:02.450Z',
+      status: 'SUCCESS',
+      stepDetails: 'HTTP POST 200 OK • Injected KYC attributes'
+    },
+    {
+      nodeId: 'node-kyc-val',
+      nodeName: 'KYC & Regulatory Validator',
+      timestamp: '2026-11-08T23:50:03.010Z',
+      status: isFailed ? 'FAILED' : 'SUCCESS',
+      stepDetails: isFailed ? 'Validation fault: Tax ID mismatch with national registry' : 'KYC verified successfully'
+    }
+  ];
+}
+
+export function runMockRetryRecord(jobId: string, recordId: string, mode: 'FROM_FAILED_STEP' | 'FROM_START'): import('../types/process').RecordRetryResult {
+  return {
+    jobId,
+    recordId,
+    status: 'RETRY_QUEUED',
+    mode,
+    message: `Record ${recordId} queued for retry with mode: ${mode}`
+  };
+}
+
+export function runMockRetryBatch(jobId: string, batchId: string, mode: 'FROM_FAILED_STEP' | 'FROM_START'): import('../types/process').RecordRetryResult {
+  return {
+    jobId,
+    batchId,
+    status: 'RETRY_QUEUED',
+    mode,
+    message: `Batch ${batchId} queued for retry with mode: ${mode}`
+  };
+}
+
+export function runMockForceExecuteBarrier(jobId: string): { jobId: string; status: string; message: string } {
+  return {
+    jobId,
+    status: 'BARRIER_RELEASED',
+    message: `End node file completion barrier manually released for job: ${jobId}`
+  };
+}
+
 
 
 

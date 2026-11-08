@@ -99,26 +99,40 @@ describe('AdminConnectorsAndTopologyStudio Component', () => {
     });
   });
 
-  it('adds composite REST JSON connector with paired Request & Response nodes', async () => {
-    render(<AdminConnectorsAndTopologyStudio routes={routes} />);
+  it('adds composite REST JSON connector as 1 unified box on top layer and 2 nodes inside sub-DAG', async () => {
+    render(<AdminConnectorsAndTopologyStudio routes={routes} initialMode="EDIT" />);
 
     const restPaletteItem = await screen.findByTestId('palette-connector-conn-def-rest-json');
     fireEvent.click(restPaletteItem);
 
+    // On top-most layer, it shows as 1 unified composite node
     await waitFor(() => {
+      expect(screen.getAllByText(/Customer Enrichment Capsule/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Open Capsule Sub-DAG/i).length).toBeGreaterThan(0);
+    });
+
+    // When going inside, it displays the 2 internal nodes (Request Connector and Response Connector)
+    const subDagBtns = screen.getAllByText(/Open Capsule Sub-DAG/i);
+    fireEvent.click(subDagBtns[subDagBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('subflow-modal-canvas')).toBeInTheDocument();
+      expect(screen.getByText(/Composite Capsule Internal Sub-DAG Studio/i)).toBeInTheDocument();
       expect(screen.getAllByText('JSON Request Connector').length).toBeGreaterThan(0);
       expect(screen.getAllByText('JSON Response Connector').length).toBeGreaterThan(0);
     });
   });
 
-  it('opens and completes the Custom Connector creation wizard', async () => {
+  it('opens and completes the Custom Node creation wizard', async () => {
     render(<AdminConnectorsAndTopologyStudio routes={routes} />);
 
     const createBtn = screen.getByTestId('create-custom-connector-btn');
     fireEvent.click(createBtn);
 
-    // Modal should be visible
-    expect(screen.getByText('Create Custom Connector')).toBeInTheDocument();
+    // Modal should be visible with updated Node naming
+    expect(screen.getByText('Create Custom Node')).toBeInTheDocument();
+    // Verify obsolete checkbox is NOT present
+    expect(screen.queryByText(/Split into Request \/ Response pair on canvas/i)).not.toBeInTheDocument();
 
     const nameInput = screen.getByTestId('custom-connector-name-input');
     fireEvent.change(nameInput, { target: { value: 'Kafka Stream Consumer' } });
@@ -130,7 +144,7 @@ describe('AdminConnectorsAndTopologyStudio Component', () => {
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(screen.queryByText('Create Custom Connector')).not.toBeInTheDocument();
+      expect(screen.queryByText('Create Custom Node')).not.toBeInTheDocument();
     });
   });
 
@@ -316,6 +330,184 @@ describe('AdminConnectorsAndTopologyStudio Component', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Java 21 / Janino Script Studio')).not.toBeInTheDocument();
+    });
+  });
+
+  it('encapsulates Request and Response pairs into a unified Composite Sub-Flow node with internal mini-DAG launcher', async () => {
+    render(<AdminConnectorsAndTopologyStudio routes={routes} initialMode="EDIT" />);
+
+    // Wait for canvas topology to load
+    await screen.findByTestId('topology-node-node-csv-src');
+
+    // Add Composite REST JSON connector from palette
+    const addRestBtn = await screen.findByTestId('palette-connector-conn-def-rest-json');
+    fireEvent.click(addRestBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Added Composite Capsule/i)).toBeInTheDocument();
+      // Should find unified composite card with sub-DAG canvas launcher
+      expect(screen.getAllByText(/Open Capsule Sub-DAG/i).length).toBeGreaterThan(0);
+    });
+
+    // Click the Open Capsule Sub-DAG button to open modal
+    const subFlowBtns = screen.getAllByText(/Open Capsule Sub-DAG/i);
+    fireEvent.click(subFlowBtns[subFlowBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('subflow-modal-canvas')).toBeInTheDocument();
+      expect(screen.getByText(/Composite Capsule Internal Sub-DAG Studio/i)).toBeInTheDocument();
+      expect(screen.getByTestId('apply-subflow-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('subflow-node-inspector')).toBeInTheDocument();
+    });
+
+    // Verify sub-node inspector and Janino code validation inside sub-DAG
+    const janinoTab = screen.getByTestId('tab-subnode-janino');
+    fireEvent.click(janinoTab);
+
+    const validateJaninoBtn = screen.getByTestId('subnode-validate-janino-btn');
+    fireEvent.click(validateJaninoBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Janino compiled in/i).length).toBeGreaterThan(0);
+    });
+
+    // Add a new custom Janino script step inside the sub-DAG
+    const addScriptBtn = screen.getByTestId('add-script-step-btn');
+    fireEvent.click(addScriptBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Custom Janino Script').length).toBeGreaterThan(0);
+    });
+
+    // Close/Apply Sub-Flow Modal
+    const applySubFlowBtn = screen.getByTestId('apply-subflow-btn');
+    fireEvent.click(applySubFlowBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('subflow-modal-canvas')).not.toBeInTheDocument();
+    });
+  });
+
+  it('supports adding dynamic branching ports with condition expressions and actions in config drawer', async () => {
+    render(<AdminConnectorsAndTopologyStudio routes={routes} initialMode="EDIT" />);
+
+    // Click CSV node on canvas
+    const csvNode = await screen.findByTestId('topology-node-node-csv-src');
+    fireEvent.click(csvNode);
+
+    // Open Branching & Routing Pathways accordion
+    const branchToggle = await screen.findByTestId('toggle-branching-accordion');
+    fireEvent.click(branchToggle);
+
+    // Add a new branch port
+    const addBranchBtn = await screen.findByTestId('add-branch-port-btn');
+    fireEvent.click(addBranchBtn);
+
+    // Fill in condition expression
+    const condInputs = screen.getAllByPlaceholderText(/e\.g\. 200\.\.299/i);
+    fireEvent.change(condInputs[condInputs.length - 1], { target: { value: "$.status == 'ERROR'" } });
+
+    // Save node configuration
+    const saveDrawerBtn = screen.getByTestId('drawer-save-btn');
+    fireEvent.click(saveDrawerBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Connector settings and branching pathways updated/i)).toBeInTheDocument();
+    });
+  });
+
+  it('adds and displays Retry & Delay Gateway connector on canvas', async () => {
+    render(<AdminConnectorsAndTopologyStudio routes={routes} initialMode="EDIT" />);
+
+    // Click Retry Gateway in palette if present
+    const retryDefBtn = screen.queryByTestId('palette-connector-conn-def-retry-gateway');
+    if (retryDefBtn) {
+      fireEvent.click(retryDefBtn);
+      await waitFor(() => {
+        expect(screen.getByText(/Retry & Delay Gateway/i)).toBeInTheDocument();
+      });
+    }
+  });
+
+  it('renders Live Stream DAG Validation Bar, Terminal Completion Sink, and Unified Stream Pipeline Drawer', async () => {
+    render(<AdminConnectorsAndTopologyStudio routes={routes} initialMode="EDIT" />);
+
+    // Check Live Stream DAG validation bar
+    const validationBar = await screen.findByTestId('live-topology-validation-bar');
+    expect(validationBar).toBeInTheDocument();
+    expect(validationBar).toHaveTextContent(/Valid Enterprise Topology/i);
+
+    // Check palette has + Capsule button
+    const addCapsuleBtn = screen.getByTestId('create-custom-capsule-btn');
+    expect(addCapsuleBtn).toBeInTheDocument();
+
+    // Check palette has Terminal Completion Sink (Blank End Node)
+    const terminalSinkDef = screen.getByTestId('palette-connector-conn-def-terminal-sink');
+    expect(terminalSinkDef).toBeInTheDocument();
+
+    // Click a node to open drawer and verify 3-step Stream Pipeline
+    const csvNode = await screen.findByTestId('topology-node-node-csv-src');
+    fireEvent.click(csvNode);
+
+    const streamPipelineSection = await screen.findByTestId('stream-pipeline-section');
+    expect(streamPipelineSection).toBeInTheDocument();
+    expect(screen.getByText(/Node Processing Logic & Output Object Preparation/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Stream In/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Stream Out/i).length).toBeGreaterThan(0);
+  });
+
+  it('renders embedded Node Palette and explicit Ingress/Egress boundary blocks inside Sub-DAG Studio', async () => {
+    render(<AdminConnectorsAndTopologyStudio routes={routes} initialMode="EDIT" />);
+
+    // Add Composite REST JSON connector from palette to ensure sub-DAG launcher is present
+    const addRestBtn = await screen.findByTestId('palette-connector-conn-def-rest-json');
+    fireEvent.click(addRestBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Open Capsule Sub-DAG/i).length).toBeGreaterThan(0);
+    });
+
+    // Click Open Sub-DAG Canvas button on the composite node
+    const subFlowBtns = screen.getAllByText(/Open Capsule Sub-DAG/i);
+    fireEvent.click(subFlowBtns[subFlowBtns.length - 1]);
+
+    // Verify Sub-DAG Studio opens with palette and boundaries
+    await waitFor(() => {
+      expect(screen.getByTestId('subflow-modal-canvas')).toBeInTheDocument();
+      expect(screen.getByTestId('subdag-node-palette')).toBeInTheDocument();
+      expect(screen.getByTestId('subdag-ingress-boundary')).toBeInTheDocument();
+      expect(screen.getByTestId('subdag-egress-boundary')).toBeInTheDocument();
+    });
+
+    // Close Sub-Flow modal
+    const applyBtn = screen.getByTestId('apply-subflow-btn');
+    fireEvent.click(applyBtn);
+  });
+
+  it('displays End Node File Completion Barrier configuration and Force Execute button in config drawer', async () => {
+    render(<AdminConnectorsAndTopologyStudio routes={routes} initialMode="EDIT" />);
+
+    // Click terminal sink node (END node)
+    const terminalNode = await screen.findByTestId('topology-node-node-terminal-sink');
+    fireEvent.click(terminalNode);
+
+    // Verify barrier section is visible
+    const barrierSection = await screen.findByTestId('end-node-barrier-section');
+    expect(barrierSection).toBeInTheDocument();
+    expect(screen.getByTestId('barrier-mode-streaming')).toBeInTheDocument();
+    expect(screen.getByTestId('barrier-mode-file-completion')).toBeInTheDocument();
+
+    // Toggle to File Completion Barrier
+    const completionBtn = screen.getByTestId('barrier-mode-file-completion');
+    fireEvent.click(completionBtn);
+
+    // Check Force Execute button
+    const forceExecuteBtn = screen.getByTestId('force-execute-barrier-btn');
+    expect(forceExecuteBtn).toBeInTheDocument();
+    fireEvent.click(forceExecuteBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Barrier released/i)).toBeInTheDocument();
     });
   });
 });

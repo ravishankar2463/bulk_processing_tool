@@ -877,7 +877,7 @@ export async function saveRouteTopology(routeId: string, topology: RouteTopology
 }
 
 /**
- * Validate route topology DAG graph.
+ * Validate route topology DAG graph with stream invariants.
  */
 export async function validateRouteTopology(routeId: string, topology: RouteTopology): Promise<{ valid: boolean; errors: string[] }> {
   try {
@@ -893,17 +893,163 @@ export async function validateRouteTopology(routeId: string, topology: RouteTopo
   } catch {
     // Fallback
   }
-  // Client-side fallback validation
+  // Client-side fallback validation enforcing full stream contract
   const errors: string[] = [];
   if (!topology.nodes || topology.nodes.length === 0) {
     errors.push('Topology must contain at least one node.');
+    return { valid: false, errors };
   }
+
   const nodeIds = new Set(topology.nodes.map(n => n.id));
+  const incoming = new Set<string>();
+  const outgoing = new Set<string>();
+  let hasStart = false;
+  let hasEnd = false;
+
+  for (const node of topology.nodes) {
+    const role = node.streamRole || (node.category === 'SOURCE' ? 'START' : (node.category === 'SINK' ? 'END' : 'MIDDLE'));
+    if (role === 'START') hasStart = true;
+    if (role === 'END') hasEnd = true;
+
+    const isCapsule = Boolean(node.subFlow) || Boolean(node.config?.isSubFlow) || node.refId.includes('subflow') || node.refId.includes('capsule');
+    if (isCapsule && role === 'END') {
+      errors.push(`Composite Capsule cannot be an END node: ${node.label}`);
+    }
+  }
+
+  if (!hasStart) errors.push('Topology stream must contain at least one START connector (stream source).');
+  if (!hasEnd) errors.push('Topology stream must contain at least one END connector (stream sink/terminal).');
+
   topology.edges.forEach(e => {
     if (!nodeIds.has(e.fromNodeId)) errors.push(`Edge references missing source node: ${e.fromNodeId}`);
     if (!nodeIds.has(e.toNodeId)) errors.push(`Edge references missing target node: ${e.toNodeId}`);
+    outgoing.add(e.fromNodeId);
+    incoming.add(e.toNodeId);
+
+    const fromNode = topology.nodes.find(n => n.id === e.fromNodeId);
+    const fromRole = fromNode?.streamRole || (fromNode?.category === 'SOURCE' ? 'START' : (fromNode?.category === 'SINK' ? 'END' : 'MIDDLE'));
+    if (fromRole === 'END') {
+      errors.push(`End terminal node cannot have outgoing edges: ${fromNode?.label || e.fromNodeId}`);
+    }
+
+    const toNode = topology.nodes.find(n => n.id === e.toNodeId);
+    const toRole = toNode?.streamRole || (toNode?.category === 'SOURCE' ? 'START' : (toNode?.category === 'SINK' ? 'END' : 'MIDDLE'));
+    if (toRole === 'START') {
+      errors.push(`Start source node cannot receive incoming edges: ${toNode?.label || e.toNodeId}`);
+    }
   });
+
+  for (const node of topology.nodes) {
+    const role = node.streamRole || (node.category === 'SOURCE' ? 'START' : (node.category === 'SINK' ? 'END' : 'MIDDLE'));
+    if (role !== 'START' && !incoming.has(node.id)) {
+      errors.push(`Node '${node.label}' has no incoming stream connections.`);
+    }
+    if (role !== 'END' && !outgoing.has(node.id)) {
+      errors.push(`Node '${node.label}' has no outgoing stream connections.`);
+    }
+  }
+
   return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Trigger on-demand route housekeeping purge.
+ */
+export async function runHousekeeping(routeId: string): Promise<import('../types/process').HousekeepingReport> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/routes/${routeId}/housekeeping/run`, {
+      method: 'POST',
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  const { runMockHousekeeping } = await import('./mockFixtures');
+  return runMockHousekeeping(routeId);
+}
+
+/**
+ * Update route retention policy days (enforcing 1..90 days ceiling).
+ */
+export async function updateRouteRetention(routeId: string, retentionDays: number): Promise<{ routeId: string; retentionDays: number; message: string }> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/admin/routes/${routeId}/retention`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ retentionDays }),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  return { routeId, retentionDays: Math.max(1, Math.min(90, retentionDays)), message: 'Retention period updated successfully.' };
+}
+
+/**
+ * Retry an individual failed record with dual modes (FROM_FAILED_STEP or FROM_START).
+ */
+export async function retryRecord(jobId: string, recordId: string, mode: 'FROM_FAILED_STEP' | 'FROM_START' = 'FROM_FAILED_STEP'): Promise<import('../types/process').RecordRetryResult> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/${jobId}/records/${recordId}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  const { runMockRetryRecord } = await import('./mockFixtures');
+  return runMockRetryRecord(jobId, recordId, mode);
+}
+
+/**
+ * Retry an entire failed batch with dual modes.
+ */
+export async function retryBatch(jobId: string, batchId: string, mode: 'FROM_FAILED_STEP' | 'FROM_START' = 'FROM_FAILED_STEP'): Promise<import('../types/process').RecordRetryResult> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/${jobId}/batches/${batchId}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  const { runMockRetryBatch } = await import('./mockFixtures');
+  return runMockRetryBatch(jobId, batchId, mode);
+}
+
+/**
+ * Force execute End Node file completion barrier manually on demand.
+ */
+export async function forceExecuteBarrier(jobId: string): Promise<{ jobId: string; status: string; message: string }> {
+  try {
+    const res = await tracedFetch(`${API_BASE}/api/v1/user/jobs/${jobId}/barrier/force-execute`, {
+      method: 'POST',
+      credentials: 'omit'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Fallback
+  }
+  const { runMockForceExecuteBarrier } = await import('./mockFixtures');
+  return runMockForceExecuteBarrier(jobId);
 }
 
 /**

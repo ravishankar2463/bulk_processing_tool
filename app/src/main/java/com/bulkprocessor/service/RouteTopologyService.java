@@ -35,7 +35,10 @@ public class RouteTopologyService {
 
     @Transactional
     public RouteTopologyDto saveTopology(RouteTopologyDto dto) {
-        validateTopologyGraph(dto);
+        List<String> errors = validateTopologyGraph(dto);
+        if (!errors.isEmpty()) {
+            throw new IllegalArgumentException("Invalid topology graph: " + String.join("; ", errors));
+        }
 
         String topologyId = (dto.topologyId() != null && !dto.topologyId().isBlank())
             ? dto.topologyId()
@@ -88,6 +91,14 @@ public class RouteTopologyService {
             } else if ("END".equalsIgnoreCase(role)) {
                 hasEnd = true;
             }
+
+            // A Composite Capsule can never be an END node
+            boolean isCapsule = (node.subFlow() != null) ||
+                (node.config() != null && Boolean.TRUE.equals(node.config().get("isSubFlow"))) ||
+                (node.refId() != null && (node.refId().contains("subflow") || node.refId().contains("capsule")));
+            if (isCapsule && "END".equalsIgnoreCase(role)) {
+                errors.add("Composite Capsule cannot be an END node: " + node.label());
+            }
         }
 
         if (!hasStart) {
@@ -97,11 +108,15 @@ public class RouteTopologyService {
             errors.add("Topology stream must contain at least one END connector (stream sink/terminal).");
         }
 
+        Set<String> nodesWithIncomingEdges = new HashSet<>();
+        Set<String> nodesWithOutgoingEdges = new HashSet<>();
+
         if (dto.edges() != null) {
             for (TopologyEdgeDto edge : dto.edges()) {
                 if (!nodeIds.contains(edge.fromNodeId())) {
                     errors.add("Edge references non-existent source node: " + edge.fromNodeId());
                 } else {
+                    nodesWithOutgoingEdges.add(edge.fromNodeId());
                     TopologyNodeDto fromNode = nodeMap.get(edge.fromNodeId());
                     String fromRole = fromNode.streamRole() != null ? fromNode.streamRole() :
                         ("SOURCE".equalsIgnoreCase(fromNode.category()) ? "START" : ("SINK".equalsIgnoreCase(fromNode.category()) ? "END" : "MIDDLE"));
@@ -113,6 +128,7 @@ public class RouteTopologyService {
                 if (!nodeIds.contains(edge.toNodeId())) {
                     errors.add("Edge references non-existent target node: " + edge.toNodeId());
                 } else {
+                    nodesWithIncomingEdges.add(edge.toNodeId());
                     TopologyNodeDto toNode = nodeMap.get(edge.toNodeId());
                     String toRole = toNode.streamRole() != null ? toNode.streamRole() :
                         ("SOURCE".equalsIgnoreCase(toNode.category()) ? "START" : ("SINK".equalsIgnoreCase(toNode.category()) ? "END" : "MIDDLE"));
@@ -120,6 +136,26 @@ public class RouteTopologyService {
                         errors.add("Start connector (ingress source) cannot receive incoming stream connections: node " + edge.toNodeId());
                     }
                 }
+            }
+        }
+
+        // Connectivity invariant checks:
+        for (TopologyNodeDto node : dto.nodes()) {
+            String role = node.streamRole() != null ? node.streamRole() :
+                ("SOURCE".equalsIgnoreCase(node.category()) ? "START" : ("SINK".equalsIgnoreCase(node.category()) ? "END" : "MIDDLE"));
+            
+            // All non-START nodes must receive an incoming stream
+            if (!"START".equalsIgnoreCase(role) && !nodesWithIncomingEdges.contains(node.id())) {
+                errors.add("Node '" + node.label() + "' (" + node.id() + ") has no incoming stream connections.");
+            }
+            // All non-END nodes must emit an outgoing stream to the next node
+            if (!"END".equalsIgnoreCase(role) && !nodesWithOutgoingEdges.contains(node.id())) {
+                errors.add("Node '" + node.label() + "' (" + node.id() + ") has no outgoing stream connections.");
+            }
+
+            // Barrier mode validation: only END nodes can act as File Completion Barrier
+            if ("FILE_COMPLETION_BARRIER".equalsIgnoreCase(node.barrierMode()) && !"END".equalsIgnoreCase(role)) {
+                errors.add("File Completion Barrier mode is only supported on END (terminal) nodes: node '" + node.label() + "'");
             }
         }
 
@@ -150,6 +186,63 @@ public class RouteTopologyService {
     }
 
     private RouteTopologyDto synthesizeDefaultTopology(String routeId) {
+        // Synthesize internal 2-step Sub-DAG (JSON Request -> JSON Response)
+        List<TopologyNodeDto> subNodes = List.of(
+            new TopologyNodeDto(
+                "sub-rest-req",
+                "CONNECTOR",
+                "conn-def-rest-json",
+                "JSON Request Connector",
+                "POST /api/v1/enrich",
+                "PROCESSOR",
+                120,
+                140,
+                List.of("in_records"),
+                List.of("out_http_req"),
+                Map.of(
+                    "method", "POST",
+                    "endpointUrl", "https://api.internal.corp/v1/enrich/${id}",
+                    "authType", "NONE",
+                    "bodyTemplate", "{\"customerId\": \"${id}\", \"email\": \"${email}\"}"
+                ),
+                "START"
+            ),
+            new TopologyNodeDto(
+                "sub-rest-res",
+                "CONNECTOR",
+                "conn-def-rest-json",
+                "JSON Response Connector",
+                "JSONPath Enrichment Mapper",
+                "PROCESSOR",
+                460,
+                140,
+                List.of("in_http_req"),
+                List.of("pass", "fail"),
+                Map.of(
+                    "expectedStatus", List.of(200, 201),
+                    "extractMappings", Map.of("tier", "$.account_tier", "kyc_status", "$.data.status")
+                ),
+                "MIDDLE",
+                List.of(
+                    new RouteTopologyDto.BranchingPortDto("pass", "PASS (2xx OK)", "#22c55e", "STATUS_CODE", "200..299", "CONTINUE"),
+                    new RouteTopologyDto.BranchingPortDto("fail", "FAIL (Error / DLQ)", "#ef4444", "STATUS_CODE", "400..599", "FAIL_RECORD")
+                ),
+                null
+            )
+        );
+
+        List<TopologyEdgeDto> subEdges = List.of(
+            new TopologyEdgeDto("sub-edge-1", "sub-rest-req", "out_http_req", "sub-rest-res", "in_http_req")
+        );
+
+        RouteTopologyDto internalSubFlow = new RouteTopologyDto(
+            "subflow-rest-composite",
+            "node-rest-composite",
+            subNodes,
+            subEdges,
+            1
+        );
+
         List<TopologyNodeDto> nodes = List.of(
             new TopologyNodeDto(
                 "node-source-csv",
@@ -190,32 +283,29 @@ public class RouteTopologyService {
                 "MIDDLE"
             ),
             new TopologyNodeDto(
-                "node-rest-req",
+                "node-rest-composite",
                 "CONNECTOR",
                 "conn-def-rest-json",
-                "JSON Request Connector",
-                "POST /api/v1/enrich",
+                "Customer Enrichment Capsule",
+                "Composite Capsule (2 Steps: Req ➔ Res)",
                 "PROCESSOR",
-                660,
-                100,
+                680,
+                140,
                 List.of("in_records"),
-                List.of("out_http_req"),
-                Map.of("method", "POST", "endpointUrl", "https://api.internal.corp/v1/enrich/${id}", "authType", "NONE"),
-                "MIDDLE"
-            ),
-            new TopologyNodeDto(
-                "node-rest-res",
-                "CONNECTOR",
-                "conn-def-rest-json",
-                "JSON Response Connector",
-                "JSONPath Enrichment Mapper",
-                "PROCESSOR",
-                940,
-                100,
-                List.of("in_http_req"),
-                List.of("out_enriched_records"),
-                Map.of("expectedStatus", List.of(200, 201), "extractMappings", Map.of("tier", "$.account_tier")),
-                "MIDDLE"
+                List.of("out", "completed", "fail"),
+                Map.of(
+                    "isSubFlow", true,
+                    "serviceName", "REST Customer Enrichment Service",
+                    "endpointUrl", "https://api.internal.corp/v1/enrich/${id}",
+                    "method", "POST"
+                ),
+                "MIDDLE",
+                List.of(
+                    new RouteTopologyDto.BranchingPortDto("out", "Verified (Continue Pipeline)", "#22c55e", "STATUS_CODE", "200..299", "CONTINUE"),
+                    new RouteTopologyDto.BranchingPortDto("completed", "Early Terminal (Blank Sink)", "#10b981", "EXPRESSION", "earlyTermination == true", "CONTINUE"),
+                    new RouteTopologyDto.BranchingPortDto("fail", "FAIL (Error / DLQ)", "#ef4444", "STATUS_CODE", "400..599", "FAIL_RECORD")
+                ),
+                internalSubFlow
             ),
             new TopologyNodeDto(
                 "node-validator-comp",
@@ -224,7 +314,7 @@ public class RouteTopologyService {
                 "Customer KYC Validator",
                 "Rule & Constraint Checker",
                 "VALIDATOR",
-                1220,
+                1040,
                 140,
                 List.of("in_enriched_records"),
                 List.of("out_validated_records"),
@@ -238,21 +328,35 @@ public class RouteTopologyService {
                 "Database JDBC Sink",
                 "Processed Records Table",
                 "SINK",
-                1500,
+                1380,
                 140,
                 List.of("in_validated_records"),
                 List.of(),
                 Map.of("targetTable", "processed_customers", "batchSize", 1000),
+                "END"
+            ),
+            new TopologyNodeDto(
+                "node-terminal-sink",
+                "CONNECTOR",
+                "conn-def-terminal-sink",
+                "Terminal Completion Sink",
+                "Blank End Node (Seals Stream)",
+                "SINK",
+                1040,
+                300,
+                List.of("in_stream"),
+                List.of(),
+                Map.of("sealStream", true, "markCompleted", true),
                 "END"
             )
         );
 
         List<TopologyEdgeDto> edges = List.of(
             new TopologyEdgeDto("edge-1", "node-source-csv", "out_file_stream", "node-splitter-comp", "in_file_stream"),
-            new TopologyEdgeDto("edge-2", "node-splitter-comp", "out_records", "node-rest-req", "in_records"),
-            new TopologyEdgeDto("edge-3", "node-rest-req", "out_http_req", "node-rest-res", "in_http_req"),
-            new TopologyEdgeDto("edge-4", "node-rest-res", "out_enriched_records", "node-validator-comp", "in_enriched_records"),
-            new TopologyEdgeDto("edge-5", "node-validator-comp", "out_validated_records", "node-sink-db", "in_validated_records")
+            new TopologyEdgeDto("edge-2", "node-splitter-comp", "out_records", "node-rest-composite", "in_records"),
+            new TopologyEdgeDto("edge-3", "node-rest-composite", "out", "node-validator-comp", "in_enriched_records"),
+            new TopologyEdgeDto("edge-4", "node-validator-comp", "out_validated_records", "node-sink-db", "in_validated_records"),
+            new TopologyEdgeDto("edge-5", "node-rest-composite", "completed", "node-terminal-sink", "in_stream")
         );
 
         return new RouteTopologyDto(

@@ -138,6 +138,8 @@ public class ConnectorService {
         long start = System.nanoTime();
         List<String> logs = new ArrayList<>();
         List<Map<String, Object>> previewRecords = new ArrayList<>();
+        String activeBranch = "pass";
+        Map<String, Object> enrichedRecord = new LinkedHashMap<>();
 
         try {
             logs.add("Initiating dry-run for protocol: " + request.protocol());
@@ -172,6 +174,51 @@ public class ConnectorService {
                     }
                 }
                 logs.add("Successfully parsed " + previewRecords.size() + " records from CSV sample stream.");
+                activeBranch = "out";
+
+            } else if ("COMPOSITE_SUBFLOW".equalsIgnoreCase(request.protocol())) {
+                logs.add("Simulating Encapsulated Composite Sub-Flow (Request ➔ Response Pipeline)...");
+                logs.add("1. Outbound request payload synthesized from stream record.");
+                logs.add("2. Target downstream service responded: HTTP 200 OK.");
+                logs.add("3. Extracted JSONPath attributes and evaluated dynamic response rules.");
+
+                Map<String, Object> sampleRecord = new LinkedHashMap<>();
+                sampleRecord.put("account_id", "ACC-9921");
+                sampleRecord.put("enrichment_tier", "GOLD");
+                sampleRecord.put("fraud_score", 0.02);
+                sampleRecord.put("verified", true);
+                sampleRecord.put("subflow_execution", "COMPLETED");
+                previewRecords.add(sampleRecord);
+
+                enrichedRecord.putAll(sampleRecord);
+                enrichedRecord.put("http_status", 200);
+                enrichedRecord.put("enriched_at", Instant.now().toString());
+                activeBranch = "pass";
+                logs.add("Matched routing pathway port: 'pass' -> Next step in pipeline.");
+
+            } else if ("RETRY_GATEWAY".equalsIgnoreCase(request.protocol())) {
+                logs.add("Evaluating Retry & Delay Gateway routing...");
+                int maxRetries = 3;
+                int currentRetry = 1;
+                if (request.parameters() != null && request.parameters().containsKey("maxRetries")) {
+                    try {
+                        maxRetries = Integer.parseInt(request.parameters().get("maxRetries").toString());
+                    } catch (Exception ignored) {}
+                }
+
+                logs.add("Gateway configured with Max Retries = " + maxRetries + ", Backoff Multiplier = 2.0x");
+                logs.add("Simulated buffer delay queue: 2000ms elapsed.");
+
+                Map<String, Object> sampleRecord = new LinkedHashMap<>();
+                sampleRecord.put("retry_count", currentRetry);
+                sampleRecord.put("max_retries", maxRetries);
+                sampleRecord.put("gateway_action", "RESUBMIT_TO_PIPELINE");
+                sampleRecord.put("buffered_at", Instant.now().toString());
+                previewRecords.add(sampleRecord);
+
+                enrichedRecord.putAll(sampleRecord);
+                activeBranch = currentRetry <= maxRetries ? "retry_attempt" : "retry_exhausted";
+                logs.add("Active branch pathway selected: '" + activeBranch + "'.");
 
             } else if ("REST_JSON".equalsIgnoreCase(request.protocol())) {
                 logs.add("Executing REST JSON Request/Response simulation...");
@@ -188,6 +235,8 @@ public class ConnectorService {
                 sampleRecord.put("verified", true);
                 previewRecords.add(sampleRecord);
 
+                enrichedRecord.putAll(sampleRecord);
+                activeBranch = "pass";
                 logs.add("Mock REST endpoint responded 200 OK with enriched record attributes.");
 
             } else if ("SOAP_XML".equalsIgnoreCase(request.protocol())) {
@@ -198,6 +247,8 @@ public class ConnectorService {
                 sampleRecord.put("clearance_status", "CLEARED");
                 previewRecords.add(sampleRecord);
 
+                enrichedRecord.putAll(sampleRecord);
+                activeBranch = "pass";
                 logs.add("XPath extraction evaluated successfully on SOAP Body.");
 
             } else {
@@ -206,6 +257,9 @@ public class ConnectorService {
                 sampleRecord.put("custom_status", "EXECUTED");
                 sampleRecord.put("processed_timestamp", Instant.now().toString());
                 previewRecords.add(sampleRecord);
+
+                enrichedRecord.putAll(sampleRecord);
+                activeBranch = "pass";
             }
 
             if (request.customCode() != null && !request.customCode().trim().isEmpty()) {
@@ -232,6 +286,7 @@ public class ConnectorService {
                 logs.add("Custom script hook executed successfully in " + scriptMicros + " microseconds.");
                 previewRecords.clear();
                 previewRecords.add(transformed);
+                enrichedRecord.putAll(transformed);
             }
 
             long durationMicros = (System.nanoTime() - start) / 1000;
@@ -244,7 +299,9 @@ public class ConnectorService {
                 previewRecords,
                 objectMapper.writeValueAsString(previewRecords),
                 null,
-                logs
+                logs,
+                activeBranch,
+                enrichedRecord
             );
 
         } catch (Exception e) {
@@ -257,7 +314,9 @@ public class ConnectorService {
                 Collections.emptyList(),
                 "",
                 e.getMessage(),
-                logs
+                logs,
+                "fail",
+                Collections.emptyMap()
             );
         }
     }

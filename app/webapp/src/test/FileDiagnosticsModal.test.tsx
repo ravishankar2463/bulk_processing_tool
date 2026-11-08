@@ -214,4 +214,38 @@ describe('FileDiagnosticsModal Component (Tier 3)', () => {
     expect(drawer.style.willChange).toBe('transform');
     expect(drawer.style.borderRadius).toBe('16px');
   });
+
+  it('opens RecordDetailDrawer with Node Traversal History and dual retry buttons', () => {
+    render(
+      <FileDiagnosticsModal
+        isOpen={true}
+        diagnostics={mockDiagnostics}
+        onClose={() => {}}
+      />
+    );
+
+    // Click Details button on first record
+    const viewBtn = screen.getByTestId('btn-view-record-rec-0014');
+    fireEvent.click(viewBtn);
+
+    // Verify Record Details drawer opens
+    expect(screen.getByTestId('record-details-title')).toHaveTextContent(/Record Details: rec-0014/i);
+
+    // Verify Node Traversal History section
+    const traversalSection = screen.getByTestId('node-traversal-history');
+    expect(traversalSection).toBeInTheDocument();
+    expect(screen.getByText(/Node Traversal History \(Audit Trail\)/i)).toBeInTheDocument();
+
+    // Verify both retry mode buttons exist
+    const retryFromStepBtn = screen.getByTestId('retry-from-failed-step-btn');
+    expect(retryFromStepBtn).toBeInTheDocument();
+    expect(retryFromStepBtn).toHaveTextContent(/Retry from Failed Step/i);
+
+    const replayFromStartBtn = screen.getByTestId('replay-from-start-btn');
+    expect(replayFromStartBtn).toBeInTheDocument();
+    expect(replayFromStartBtn).toHaveTextContent(/Replay from Start/i);
+
+    // Test clicking retry from failed step
+    fireEvent.click(retryFromStepBtn);
+  });
 });

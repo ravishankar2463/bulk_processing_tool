@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   GitMerge, 
   Plus, 
@@ -46,6 +46,7 @@ import { ConnectorPalette } from './ConnectorPalette';
 import { ConnectorConfigDrawer } from './ConnectorConfigDrawer';
 import { CustomConnectorWizardModal } from './CustomConnectorWizardModal';
 import { ConnectorDryRunModal } from './ConnectorDryRunModal';
+import { SubFlowModalCanvas } from './SubFlowModalCanvas';
 
 interface Props {
   routes: ProcessRoute[];
@@ -78,6 +79,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [dryRunTargetNode, setDryRunTargetNode] = useState<TopologyNode | null>(null);
+  const [subFlowModalNode, setSubFlowModalNode] = useState<TopologyNode | null>(null);
   
   // Interactive Port Wiring State
   const [connectingFrom, setConnectingFrom] = useState<{ nodeId: string; portId: string } | null>(null);
@@ -286,66 +288,219 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
     const spawnX = 260 + baseOffset;
     const spawnY = 120 + baseOffset;
 
-    if (def.composite) {
-      // Create paired Request and Response nodes
-      const reqNodeId = `node-conn-req-${Date.now()}`;
-      const resNodeId = `node-conn-res-${Date.now() + 1}`;
-      const linkEdgeId = `edge-pair-${Date.now()}`;
-
-      const isRest = def.protocol === 'REST_JSON';
-      const reqNode: TopologyNode = {
-        id: reqNodeId,
+    if (def.protocol === 'TERMINAL_SINK' || def.definitionId.includes('terminal')) {
+      const termNodeId = `node-terminal-${Date.now()}`;
+      const termNode: TopologyNode = {
+        id: termNodeId,
         type: 'CONNECTOR',
         refId: def.definitionId,
-        label: isRest ? 'JSON Request Connector' : 'XML Request Connector',
-        subLabel: `${def.name} [Inbound Request]`,
-        category: def.category,
+        label: 'Terminal Completion Sink',
+        subLabel: 'Blank End Node (Seals Stream)',
+        category: 'SINK',
+        streamRole: 'END',
+        x: spawnX,
+        y: spawnY,
+        inputPorts: ['in_stream'],
+        outputPorts: [],
+        config: { sealStream: true, markCompleted: true }
+      };
+      setTopology(prev => prev ? { ...prev, nodes: [...prev.nodes, termNode] } : null);
+      setSelectedNodeId(termNodeId);
+      setStatusMessage({ type: 'success', text: 'Added Terminal Completion Sink (Blank End Node) to DAG canvas.' });
+      return;
+    }
+
+    if (def.composite) {
+      // Create single Encapsulated Sub-Flow block on canvas
+      const subflowNodeId = `node-subflow-${Date.now()}`;
+      const isRest = def.protocol === 'REST_JSON';
+      const isSoap = def.protocol === 'SOAP_XML';
+
+      const reqId = `sub-req-${Date.now()}`;
+      const resId = `sub-res-${Date.now() + 1}`;
+      const subFlow: RouteTopology = {
+        topologyId: `subflow-${subflowNodeId}`,
+        routeId: subflowNodeId,
+        nodes: [
+          {
+            id: reqId,
+            type: 'CONNECTOR',
+            refId: def.definitionId,
+            label: isRest ? 'JSON Request Connector' : 'SOAP Request Connector',
+            subLabel: isRest ? 'POST /api/v1/enrich' : 'POST /ws/soap',
+            category: 'PROCESSOR',
+            streamRole: 'START',
+            x: 140,
+            y: 160,
+            inputPorts: ['in_records'],
+            outputPorts: ['out_http_req'],
+            config: {
+              method: 'POST',
+              endpointUrl: isRest ? 'https://api.internal.corp/v1/enrich/${id}' : 'https://legacy.corp/ws/CustomerService?wsdl',
+              authType: 'BEARER_TOKEN',
+              headers: {
+                'Content-Type': isSoap ? 'text/xml;charset=UTF-8' : 'application/json'
+              },
+              bodyTemplate: isRest ? '{\n  "id": "${id}",\n  "status": "${status}"\n}' : '<soapenv:Envelope>...</soapenv:Envelope>',
+              timeoutMs: 5000,
+              customCode: '// Pre-Request Janino Hook\nMap<String, Object> output = new HashMap<>(input);\noutput.put("requestedAt", System.currentTimeMillis());\nreturn output;'
+            }
+          },
+          {
+            id: resId,
+            type: 'CONNECTOR',
+            refId: def.definitionId,
+            label: isRest ? 'JSON Response Connector' : 'SOAP Response Connector',
+            subLabel: isRest ? 'JSONPath Extractor' : 'XPath Extractor',
+            category: 'PROCESSOR',
+            streamRole: 'MIDDLE',
+            x: 520,
+            y: 160,
+            inputPorts: ['in_http_req'],
+            outputPorts: ['out', 'completed', 'fail'],
+            branchingPorts: [
+              {
+                portId: 'out',
+                label: 'Verified (Continue)',
+                color: '#22c55e',
+                conditionType: 'STATUS_CODE',
+                conditionExpr: '200..299',
+                actionType: 'CONTINUE'
+              },
+              {
+                portId: 'completed',
+                label: 'Early Complete (Blank Sink)',
+                color: '#10b981',
+                conditionType: 'EXPRESSION',
+                conditionExpr: 'terminate == true',
+                actionType: 'CONTINUE'
+              },
+              {
+                portId: 'fail',
+                label: 'FAIL (Error / DLQ)',
+                color: '#ef4444',
+                conditionType: 'STATUS_CODE',
+                conditionExpr: '400..599',
+                actionType: 'FAIL_RECORD'
+              }
+            ],
+            config: {
+              expectedStatus: [200, 201],
+              extractMappings: {
+                status: '$.status',
+                score: '$.data.score'
+              },
+              customCode: '// Post-Response Janino Transformation\nMap<String, Object> output = new HashMap<>(input);\noutput.put("enrichmentStatus", "VERIFIED");\nreturn output;'
+            }
+          }
+        ],
+        edges: [
+          {
+            id: `sub-edge-1-${Date.now()}`,
+            fromNodeId: reqId,
+            fromPort: 'out_http_req',
+            toNodeId: resId,
+            toPort: 'in_http_req'
+          }
+        ],
+        version: 1
+      };
+
+      const compositeNode: TopologyNode = {
+        id: subflowNodeId,
+        type: 'CONNECTOR',
+        refId: def.definitionId,
+        label: isRest ? 'Customer Enrichment Capsule' : (isSoap ? 'SOAP Service Capsule' : `${def.name} Capsule`),
+        subLabel: `Composite Capsule (2 Steps: Req ➔ Res)`,
+        category: 'PROCESSOR',
         streamRole: 'MIDDLE',
         x: spawnX,
         y: spawnY,
         inputPorts: ['in_records'],
-        outputPorts: ['out_http_req'],
-        config: isRest 
-          ? { method: 'POST', endpointUrl: 'https://api.internal.corp/v1/enrich', authType: 'NONE' }
-          : { soapVersion: '1.1', envelopeTemplate: '<soapenv:Envelope>...</soapenv:Envelope>' }
+        outputPorts: ['out', 'completed', 'fail'],
+        branchingPorts: [
+          {
+            portId: 'out',
+            label: 'Verified (Continue)',
+            color: '#22c55e',
+            conditionType: 'STATUS_CODE',
+            conditionExpr: '200..299',
+            actionType: 'CONTINUE'
+          },
+          {
+            portId: 'completed',
+            label: 'Early Complete (Blank Sink)',
+            color: '#10b981',
+            conditionType: 'EXPRESSION',
+            conditionExpr: 'terminate == true',
+            actionType: 'CONTINUE'
+          },
+          {
+            portId: 'fail',
+            label: 'FAIL (Error / DLQ)',
+            color: '#ef4444',
+            conditionType: 'STATUS_CODE',
+            conditionExpr: '400..599',
+            actionType: 'FAIL_RECORD'
+          }
+        ],
+        subFlow,
+        config: {
+          isSubFlow: true,
+          method: 'POST',
+          endpointUrl: isRest ? 'https://api.internal.corp/v1/enrich/${id}' : 'https://legacy.corp/ws/CustomerService?wsdl',
+          authType: 'BEARER_TOKEN'
+        }
       };
 
-      const resNode: TopologyNode = {
-        id: resNodeId,
+      setTopology(prev => prev ? { ...prev, nodes: [...prev.nodes, compositeNode] } : null);
+      setSelectedNodeId(subflowNodeId);
+      setStatusMessage({ type: 'success', text: `Added Composite Capsule "${compositeNode.label}" (single node on main DAG) with sub-DAG canvas!` });
+      return;
+    } else if (def.protocol === 'RETRY_GATEWAY') {
+      const retryNodeId = `node-retry-${Date.now()}`;
+      const retryNode: TopologyNode = {
+        id: retryNodeId,
         type: 'CONNECTOR',
         refId: def.definitionId,
-        label: isRest ? 'JSON Response Connector' : 'XML Response Connector',
-        subLabel: `${def.name} [Outbound Response]`,
-        category: def.category,
+        label: 'Retry & Delay Gateway',
+        subLabel: 'Backoff 2.0x • Max 3 Retries',
+        category: 'PROCESSOR',
         streamRole: 'MIDDLE',
-        x: spawnX + 260,
+        x: spawnX,
         y: spawnY,
-        inputPorts: ['in_http_req'],
-        outputPorts: ['out_enriched'],
-        config: isRest 
-          ? { expectedStatus: [200, 201], extractMappings: { tier: '$.data.tier' } }
-          : { xpathQuery: '//tns:CustomerResult/tns:Status/text()' }
+        inputPorts: ['in'],
+        outputPorts: ['retry', 'exhausted'],
+        branchingPorts: [
+          {
+            portId: 'retry',
+            label: 'RETRY (Delayed Loop)',
+            color: '#f59e0b',
+            conditionType: 'ALWAYS',
+            conditionExpr: 'attempts <= maxRetries',
+            actionType: 'RETRY'
+          },
+          {
+            portId: 'exhausted',
+            label: 'EXHAUSTED (DLQ)',
+            color: '#ef4444',
+            conditionType: 'ALWAYS',
+            conditionExpr: 'attempts > maxRetries',
+            actionType: 'FAIL_RECORD'
+          }
+        ],
+        config: {
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          backoffMultiplier: 2.0,
+          maxDelayMs: 30000,
+          jitter: true
+        }
       };
 
-      const pairEdge: TopologyEdge = {
-        id: linkEdgeId,
-        fromNodeId: reqNodeId,
-        fromPort: 'out_http_req',
-        toNodeId: resNodeId,
-        toPort: 'in_http_req'
-      };
-
-      setTopology(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          nodes: [...prev.nodes, reqNode, resNode],
-          edges: [...prev.edges, pairEdge]
-        };
-      });
-
-      setSelectedNodeId(reqNodeId);
-      setStatusMessage({ type: 'success', text: `Added composite paired ${def.name} nodes to canvas.` });
+      setTopology(prev => prev ? { ...prev, nodes: [...prev.nodes, retryNode] } : prev);
+      setSelectedNodeId(retryNodeId);
+      setStatusMessage({ type: 'success', text: 'Added Retry & Delay Gateway to canvas.' });
 
     } else {
       // Single Connector Node
@@ -429,7 +584,12 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
   };
 
   // Save Node Config from Drawer
-  const handleSaveNodeConfig = (nodeId: string, updatedConfig: Record<string, unknown>, updatedLabel?: string) => {
+  const handleSaveNodeConfig = (
+    nodeId: string, 
+    updatedConfig: Record<string, unknown>, 
+    updatedLabel?: string,
+    updatedBranchingPorts?: ReadonlyArray<any>
+  ) => {
     setTopology(prev => {
       if (!prev) return prev;
       return {
@@ -437,11 +597,30 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
         nodes: prev.nodes.map(n => n.id === nodeId ? { 
           ...n, 
           config: updatedConfig, 
-          label: updatedLabel || n.label 
+          label: updatedLabel || n.label,
+          branchingPorts: updatedBranchingPorts || n.branchingPorts,
+          outputPorts: updatedBranchingPorts && updatedBranchingPorts.length > 0 
+            ? updatedBranchingPorts.map((bp: any) => bp.portId) 
+            : n.outputPorts
         } : n)
       };
     });
-    setStatusMessage({ type: 'success', text: 'Connector settings updated.' });
+    setStatusMessage({ type: 'success', text: 'Connector settings and branching pathways updated.' });
+  };
+
+  // Save Sub-Flow from Modal Canvas
+  const handleSaveSubFlow = (parentNodeId: string, updatedSubFlow: RouteTopology) => {
+    setTopology(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        nodes: prev.nodes.map(n => n.id === parentNodeId ? {
+          ...n,
+          subFlow: updatedSubFlow
+        } : n)
+      };
+    });
+    setStatusMessage({ type: 'success', text: 'Encapsulated Sub-Flow saved to parent node.' });
   };
 
   // Validate Graph
@@ -480,6 +659,137 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
     setStatusMessage({ type: 'success', text: `Custom connector "${created.name}" created and added to palette!` });
   };
 
+  // Real-time live validation state
+  const liveValidation = useMemo(() => {
+    if (!topology || !topology.nodes || topology.nodes.length === 0) {
+      return { valid: false, errors: ['Topology is empty. Add nodes from the palette.'] };
+    }
+    const errors: string[] = [];
+    const nodeIds = new Set(topology.nodes.map(n => n.id));
+    const incoming = new Set<string>();
+    const outgoing = new Set<string>();
+    let hasStart = false;
+    let hasEnd = false;
+
+    for (const node of topology.nodes) {
+      const role = node.streamRole || (node.category === 'SOURCE' ? 'START' : (node.category === 'SINK' ? 'END' : 'MIDDLE'));
+      if (role === 'START') hasStart = true;
+      if (role === 'END') hasEnd = true;
+
+      const isCapsule = Boolean(node.subFlow) || Boolean(node.config?.isSubFlow) || node.refId.includes('subflow') || node.refId.includes('capsule');
+      if (isCapsule && role === 'END') {
+        errors.push(`Composite Capsule cannot be an END node: ${node.label}`);
+      }
+    }
+
+    if (!hasStart) errors.push('Route requires at least one START source connector.');
+    if (!hasEnd) errors.push('Route requires at least one END terminal sink connector.');
+
+    topology.edges.forEach(e => {
+      outgoing.add(e.fromNodeId);
+      incoming.add(e.toNodeId);
+    });
+
+    for (const node of topology.nodes) {
+      const role = node.streamRole || (node.category === 'SOURCE' ? 'START' : (node.category === 'SINK' ? 'END' : 'MIDDLE'));
+      if (role !== 'START' && !incoming.has(node.id)) {
+        errors.push(`"${node.label}" has no incoming stream.`);
+      }
+      if (role !== 'END' && !outgoing.has(node.id)) {
+        errors.push(`"${node.label}" has no outgoing stream.`);
+      }
+    }
+
+    return { valid: errors.length === 0, errors };
+  }, [topology]);
+
+  // Create Custom Capsule Handler
+  const handleAddCustomCapsule = () => {
+    if (!topology) return;
+    const baseOffset = (topology.nodes.length % 5) * 40;
+    const spawnX = 260 + baseOffset;
+    const spawnY = 120 + baseOffset;
+    const capsuleNodeId = `node-capsule-${Date.now()}`;
+    const reqId = `sub-step-1-${Date.now()}`;
+    const resId = `sub-step-2-${Date.now() + 1}`;
+
+    const subFlow: RouteTopology = {
+      topologyId: `subflow-${capsuleNodeId}`,
+      routeId: capsuleNodeId,
+      nodes: [
+        {
+          id: reqId,
+          type: 'CONNECTOR',
+          refId: 'conn-def-rest-json',
+          label: 'Inbound Request Step',
+          subLabel: 'POST /api/internal/service',
+          category: 'PROCESSOR',
+          streamRole: 'START',
+          x: 140,
+          y: 160,
+          inputPorts: ['in_records'],
+          outputPorts: ['out_step'],
+          config: {
+            method: 'POST',
+            endpointUrl: 'https://api.internal.corp/v1/enrich/${id}',
+            customCode: '// Step 1 Logic\nMap<String, Object> output = new HashMap<>(input);\nreturn output;'
+          }
+        },
+        {
+          id: resId,
+          type: 'CONNECTOR',
+          refId: 'conn-def-rest-json',
+          label: 'Response & Extraction Step',
+          subLabel: 'Extract & Validate',
+          category: 'PROCESSOR',
+          streamRole: 'MIDDLE',
+          x: 520,
+          y: 160,
+          inputPorts: ['in_step'],
+          outputPorts: ['out', 'completed'],
+          branchingPorts: [
+            { portId: 'out', label: 'Verified (Continue)', color: '#22c55e', conditionType: 'STATUS_CODE', conditionExpr: '200..299', actionType: 'CONTINUE' },
+            { portId: 'completed', label: 'Terminal Exit (Blank Sink)', color: '#10b981', conditionType: 'EXPRESSION', conditionExpr: 'terminate == true', actionType: 'CONTINUE' }
+          ],
+          config: {
+            customCode: '// Step 2 Logic\nMap<String, Object> output = new HashMap<>(input);\nreturn output;'
+          }
+        }
+      ],
+      edges: [
+        { id: `sub-edge-${Date.now()}`, fromNodeId: reqId, fromPort: 'out_step', toNodeId: resId, toPort: 'in_step' }
+      ],
+      version: 1
+    };
+
+    const capsuleNode: TopologyNode = {
+      id: capsuleNodeId,
+      type: 'CONNECTOR',
+      refId: 'conn-def-composite-subflow',
+      label: 'Custom Composite Capsule',
+      subLabel: `Capsule (${subFlow.nodes.length} Steps: Multi-Step DAG)`,
+      category: 'PROCESSOR',
+      streamRole: 'MIDDLE',
+      x: spawnX,
+      y: spawnY,
+      inputPorts: ['in_stream'],
+      outputPorts: ['out', 'completed'],
+      branchingPorts: [
+        { portId: 'out', label: 'Continue (Next Node)', color: '#22c55e', conditionType: 'STATUS_CODE', conditionExpr: '200..299', actionType: 'CONTINUE' },
+        { portId: 'completed', label: 'Early Terminal (Blank Sink)', color: '#10b981', conditionType: 'EXPRESSION', conditionExpr: 'terminate == true', actionType: 'CONTINUE' }
+      ],
+      subFlow,
+      config: {
+        isSubFlow: true,
+        capsuleName: 'Custom Composite Capsule'
+      }
+    };
+
+    setTopology(prev => prev ? { ...prev, nodes: [...prev.nodes, capsuleNode] } : null);
+    setSelectedNodeId(capsuleNodeId);
+    setStatusMessage({ type: 'success', text: 'Custom Composite Capsule added to DAG canvas.' });
+  };
+
   // Delete Custom Connector
   const handleDeleteCustomConnector = async (id: string) => {
     await deleteCustomConnectorDefinition(id);
@@ -491,16 +801,36 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
   const selectedNodeDef = connectorDefinitions.find(d => d.definitionId === selectedNode?.refId);
 
   // SVG Edge Calculations with Smooth Bezier Curves
-  const getNodeCenter = (nodeId: string, isOutput: boolean) => {
+  const getNodeCenter = (nodeId: string, isOutput: boolean, portId?: string) => {
     const node = topology?.nodes.find(n => n.id === nodeId);
     if (!node) return { x: 0, y: 0 };
-    // Node dimensions approx 220px width, 90px height
+    // Node dimensions: 220px width, 85px height
     const nodeWidth = 220;
     const nodeHeight = 85;
-    return {
-      x: isOutput ? node.x + nodeWidth : node.x,
-      y: node.y + nodeHeight / 2
-    };
+
+    if (isOutput) {
+      const ports = (node.branchingPorts && node.branchingPorts.length > 0)
+        ? node.branchingPorts.map(bp => bp.portId)
+        : (node.outputPorts && node.outputPorts.length > 0 ? node.outputPorts : ['out']);
+      const portIndex = portId ? ports.indexOf(portId) : 0;
+      const safeIndex = portIndex >= 0 ? portIndex : 0;
+      const count = Math.max(1, ports.length);
+      const step = nodeHeight / (count + 1);
+      return {
+        x: node.x + nodeWidth,
+        y: node.y + step * (safeIndex + 1)
+      };
+    } else {
+      const ports = node.inputPorts && node.inputPorts.length > 0 ? node.inputPorts : ['in'];
+      const portIndex = portId ? ports.indexOf(portId) : 0;
+      const safeIndex = portIndex >= 0 ? portIndex : 0;
+      const count = Math.max(1, ports.length);
+      const step = nodeHeight / (count + 1);
+      return {
+        x: node.x,
+        y: node.y + step * (safeIndex + 1)
+      };
+    }
   };
 
   return (
@@ -725,6 +1055,36 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
         </div>
       </header>
 
+      {/* Live Topology Stream Validation Status Bar */}
+      {studioMode === 'EDIT' && (
+        <div 
+          data-testid="live-topology-validation-bar"
+          style={{
+            padding: '6px 20px',
+            background: liveValidation.valid ? '#f0fdf4' : '#fffbeb',
+            borderBottom: `1px solid ${liveValidation.valid ? '#bbf7d0' : '#fde68a'}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '11px',
+            color: liveValidation.valid ? '#15803d' : '#b45309'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px' }}>{liveValidation.valid ? '✓' : '⚠️'}</span>
+            <span>
+              <strong>Stream DAG Status:</strong>{' '}
+              {liveValidation.valid 
+                ? 'Valid Enterprise Topology (At least 1 Source & 1 Sink, all nodes cleanly wired)'
+                : liveValidation.errors.join(' • ')}
+            </span>
+          </div>
+          <span style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '10px' }}>
+            {liveValidation.valid ? 'Ready to Deploy' : 'Incomplete Wiring'}
+          </span>
+        </div>
+      )}
+
       {/* Non-Editable View Mode Notice */}
       {studioMode === 'VIEW' && (
         <div style={{
@@ -802,6 +1162,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
           onAddConnectorNode={handleAddConnectorNode}
           onAddComponentNode={handleAddComponentNode}
           onOpenCreateCustomConnector={() => setIsCustomModalOpen(true)}
+          onAddCustomCapsule={handleAddCustomCapsule}
           onDeleteCustomConnector={handleDeleteCustomConnector}
         />
 
@@ -858,13 +1219,55 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                 >
                   <path d="M 0 1 L 10 5 L 0 9 z" fill="#3b82f6" />
                 </marker>
+                <marker
+                  id="edge-arrow-pass"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#22c55e" />
+                </marker>
+                <marker
+                  id="edge-arrow-fail"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#ef4444" />
+                </marker>
+                <marker
+                  id="edge-arrow-retry"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+                </marker>
               </defs>
 
               {topology?.edges.map((edge) => {
-                const start = getNodeCenter(edge.fromNodeId, true);
-                const end = getNodeCenter(edge.toNodeId, false);
+                const start = getNodeCenter(edge.fromNodeId, true, edge.fromPort);
+                const end = getNodeCenter(edge.toNodeId, false, edge.toPort);
                 const deltaX = Math.abs(end.x - start.x) * 0.5;
                 const pathD = `M ${start.x} ${start.y} C ${start.x + deltaX} ${start.y}, ${end.x - deltaX} ${end.y}, ${end.x} ${end.y}`;
+
+                const isPass = edge.fromPort.toLowerCase().includes('pass');
+                const isFail = edge.fromPort.toLowerCase().includes('fail') || edge.fromPort.toLowerCase().includes('exhausted');
+                const isRetry = edge.fromPort.toLowerCase().includes('retry');
+                const strokeColor = isPass ? '#22c55e' : isFail ? '#ef4444' : isRetry ? '#f59e0b' : '#3b82f6';
+                const markerId = isPass ? 'url(#edge-arrow-pass)' : isFail ? 'url(#edge-arrow-fail)' : isRetry ? 'url(#edge-arrow-retry)' : 'url(#edge-arrow)';
+
+                const midX = (start.x + end.x) / 2;
+                const midY = (start.y + end.y) / 2;
 
                 return (
                   <g key={edge.id} className="topology-edge-group">
@@ -884,12 +1287,37 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                     <path
                       d={pathD}
                       fill="none"
-                      stroke="#3b82f6"
+                      stroke={strokeColor}
                       strokeWidth="2.5"
-                      strokeDasharray="6,4"
-                      markerEnd="url(#edge-arrow)"
+                      strokeDasharray={isFail ? '4,4' : isRetry ? '6,3' : '6,4'}
+                      markerEnd={markerId}
                       style={{ pointerEvents: 'none' }}
                     />
+                    {/* Edge Port Badge on Non-Trivial Ports */}
+                    {(isPass || isFail || isRetry) && (
+                      <g style={{ pointerEvents: 'none' }}>
+                        <rect
+                          x={midX - 22}
+                          y={midY - 9}
+                          width="44"
+                          height="18"
+                          rx="4"
+                          fill="#ffffff"
+                          stroke={strokeColor}
+                          strokeWidth="1.5"
+                        />
+                        <text
+                          x={midX}
+                          y={midY + 3.5}
+                          textAnchor="middle"
+                          fontSize="9"
+                          fontWeight="bold"
+                          fill={strokeColor}
+                        >
+                          {isPass ? 'PASS' : isFail ? 'FAIL' : 'RETRY'}
+                        </text>
+                      </g>
+                    )}
                   </g>
                 );
               })}
@@ -899,12 +1327,32 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
             {topology?.nodes.map((node) => {
               const isSelected = selectedNodeId === node.id;
               const isConnector = node.type === 'CONNECTOR';
+              const isSubFlow = (node.subFlow != null || node.config?.isSubFlow === true || node.refId.includes('subflow') || node.refId.includes('capsule')) && !node.id.startsWith('sub-');
+              const isTerminalSink = node.streamRole === 'END' || node.category === 'SINK' || node.refId.includes('terminal');
+              const isRetryGateway = node.refId === 'conn-def-retry-gateway';
+
+              const activeBranchPorts = (node.branchingPorts && node.branchingPorts.length > 0)
+                ? node.branchingPorts
+                : (node.outputPorts && node.outputPorts.length > 0 ? node.outputPorts : (isTerminalSink ? [] : ['out'])).map(p => ({
+                    portId: p,
+                    label: p,
+                    color: (p.toLowerCase().includes('pass') || p.toLowerCase() === 'out') ? '#22c55e' : (p.toLowerCase().includes('completed') ? '#10b981' : (p.toLowerCase().includes('fail') || p.toLowerCase().includes('exhausted') ? '#ef4444' : p.toLowerCase().includes('retry') ? '#f59e0b' : '#3b82f6')),
+                    conditionType: 'ALWAYS' as const,
+                    conditionExpr: '',
+                    actionType: 'CONTINUE' as const
+                  }));
 
               return (
                 <div
                   key={node.id}
                   data-testid={`topology-node-${node.id}`}
                   onMouseDown={(e) => handleMouseDownNode(e, node.id)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    if (isSubFlow) {
+                      setSubFlowModalNode(node);
+                    }
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedNodeId(node.id);
@@ -917,58 +1365,91 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                     minHeight: '85px',
                     background: '#ffffff',
                     borderRadius: '12px',
-                    border: `2px solid ${isSelected ? 'var(--primary, #2563eb)' : isConnector ? '#93c5fd' : '#86efac'}`,
+                    border: `2px solid ${isSelected ? 'var(--primary, #2563eb)' : isSubFlow ? '#a855f7' : isTerminalSink ? '#10b981' : isRetryGateway ? '#f59e0b' : isConnector ? '#93c5fd' : '#86efac'}`,
                     boxShadow: isSelected ? '0 8px 24px rgba(37,99,235,0.2)' : '0 2px 8px rgba(15,23,42,0.06)',
                     padding: '10px 14px',
                     cursor: 'grab',
                     transition: 'border 0.15s ease, box-shadow 0.15s ease'
                   }}
                 >
-                  {/* Left (Input) Ports */}
-                  {node.inputPorts.map((port) => (
-                    <div
-                      key={port}
-                      title={`Input: ${port} (click to connect)`}
-                      data-testid={`port-in-${node.id}`}
-                      onClick={(e) => handlePortClick(e, node.id, port, false)}
-                      style={{
-                        position: 'absolute',
-                        left: '-9px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        width: '16px',
-                        height: '16px',
-                        borderRadius: '50%',
-                        background: connectingFrom ? '#22c55e' : '#ffffff',
-                        border: '3px solid #3b82f6',
-                        cursor: 'pointer',
-                        zIndex: 10
-                      }}
-                    />
-                  ))}
+                  {/* Left (Input) Ports - Vertically Stacked */}
+                  {(() => {
+                    const count = Math.max(1, node.inputPorts.length);
+                    const step = 85 / (count + 1);
 
-                  {/* Right (Output) Ports */}
-                  {node.outputPorts.map((port) => (
-                    <div
-                      key={port}
-                      title={`Output: ${port} (click and drag to connect)`}
-                      data-testid={`port-out-${node.id}`}
-                      onClick={(e) => handlePortClick(e, node.id, port, true)}
-                      style={{
-                        position: 'absolute',
-                        right: '-9px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        width: '16px',
-                        height: '16px',
-                        borderRadius: '50%',
-                        background: connectingFrom?.nodeId === node.id ? '#3b82f6' : '#ffffff',
-                        border: '3px solid #22c55e',
-                        cursor: 'pointer',
-                        zIndex: 10
-                      }}
-                    />
-                  ))}
+                    return node.inputPorts.map((port, idx) => {
+                      const topOffset = step * (idx + 1);
+                      const isConnectingTarget = connectingFrom && connectingFrom.nodeId !== node.id;
+
+                      return (
+                        <div
+                          key={port}
+                          title={`Input Port: ${port} (click to connect wire)`}
+                          data-testid={`port-in-${node.id}`}
+                          onClick={(e) => handlePortClick(e, node.id, port, false)}
+                          style={{
+                            position: 'absolute',
+                            left: '-9px',
+                            top: `${topOffset}px`,
+                            transform: 'translateY(-50%)',
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            background: isConnectingTarget ? '#22c55e' : '#ffffff',
+                            border: '3px solid #3b82f6',
+                            cursor: 'pointer',
+                            zIndex: 10,
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
+                          }}
+                        />
+                      );
+                    });
+                  })()}
+
+                  {/* Right (Output) Ports - Vertically Stacked with Color Coding */}
+                  {(() => {
+                    const count = Math.max(1, activeBranchPorts.length);
+                    const step = 85 / (count + 1);
+
+                    return activeBranchPorts.map((port, idx) => {
+                      const topOffset = step * (idx + 1);
+                      const isConnecting = connectingFrom?.nodeId === node.id && connectingFrom.portId === port.portId;
+                      const isPass = port.portId.toLowerCase().includes('pass');
+                      const isFail = port.portId.toLowerCase().includes('fail') || port.portId.toLowerCase().includes('exhausted');
+                      const isRetry = port.portId.toLowerCase().includes('retry');
+                      const portColor = port.color || (isPass ? '#22c55e' : isFail ? '#ef4444' : isRetry ? '#f59e0b' : '#3b82f6');
+
+                      return (
+                        <div
+                          key={port.portId}
+                          title={`Exit Port: ${port.label || port.portId} (click and drag to connect)`}
+                          data-testid={`port-out-${node.id}`}
+                          onClick={(e) => handlePortClick(e, node.id, port.portId, true)}
+                          style={{
+                            position: 'absolute',
+                            right: '-9px',
+                            top: `${topOffset}px`,
+                            transform: 'translateY(-50%)',
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            background: isConnecting ? portColor : '#ffffff',
+                            border: `3px solid ${portColor}`,
+                            cursor: 'pointer',
+                            zIndex: 10,
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <span style={{ fontSize: '7px', fontWeight: 800, color: isConnecting ? '#ffffff' : portColor, pointerEvents: 'none' }}>
+                            {isPass ? '✓' : isFail ? '✗' : isRetry ? '↻' : '•'}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
 
                   {/* Node Header */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -980,10 +1461,11 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                         textTransform: 'uppercase',
                         padding: '1px 5px',
                         borderRadius: '4px',
-                        background: isConnector ? '#dbeafe' : '#dcfce7',
-                        color: isConnector ? '#1e40af' : '#166534'
+                        background: isSubFlow ? '#faf5ff' : (isTerminalSink ? '#ecfdf5' : (isConnector ? '#dbeafe' : '#dcfce7')),
+                        color: isSubFlow ? '#7e22ce' : (isTerminalSink ? '#047857' : (isConnector ? '#1e40af' : '#166534')),
+                        border: `1px solid ${isSubFlow ? '#e9d5ff' : (isTerminalSink ? '#a7f3d0' : (isConnector ? '#bfdbfe' : '#bbf7d0'))}`
                       }}>
-                        {node.type}
+                        {isSubFlow ? 'CAPSULE' : (isTerminalSink ? 'BLANK SINK' : node.type)}
                       </span>
                       {node.streamRole && (
                         <span style={{
@@ -1026,10 +1508,12 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                     <div style={{ 
                       padding: '5px', 
                       borderRadius: '6px', 
-                      background: isConnector ? '#eff6ff' : '#f0fdf4',
-                      color: isConnector ? '#2563eb' : '#16a34a'
+                      background: isSubFlow ? '#faf5ff' : (isTerminalSink ? '#ecfdf5' : (isConnector ? '#eff6ff' : '#f0fdf4')),
+                      color: isSubFlow ? '#7e22ce' : (isTerminalSink ? '#059669' : (isConnector ? '#2563eb' : '#16a34a'))
                     }}>
-                      {isConnector ? (
+                      {isSubFlow ? <Layers size={15} /> :
+                       isTerminalSink ? <CheckCircle2 size={15} /> :
+                       isConnector ? (
                         node.label.includes('CSV') ? <FileSpreadsheet size={15} /> :
                         node.label.includes('JSON') || node.label.includes('REST') ? <Globe size={15} /> :
                         node.label.includes('XML') || node.label.includes('SOAP') ? <Code2 size={15} /> :
@@ -1070,6 +1554,36 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
                       {node.config.fields.length} schema fields configured
                     </div>
                   )}
+
+                  {/* Sub-Flow Canvas Launcher for Composite / Sub-Flow nodes */}
+                  {isSubFlow && (
+                    <button
+                      type="button"
+                      data-testid={`open-subflow-btn-${node.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSubFlowModalNode(node);
+                      }}
+                      style={{
+                        marginTop: '6px',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        background: '#faf5ff',
+                        color: '#7e22ce',
+                        border: '1px solid #e9d5ff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span>⛶</span> Open Capsule Sub-DAG ({node.subFlow?.nodes?.length || 2} steps)
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -1084,6 +1598,7 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
             onClose={() => setSelectedNodeId(null)}
             onSaveNodeConfig={handleSaveNodeConfig}
             onOpenDryRun={(targetNode) => setDryRunTargetNode(targetNode)}
+            onOpenSubFlowModal={(targetNode) => setSubFlowModalNode(targetNode)}
           />
         )}
       </div>
@@ -1098,6 +1613,15 @@ export const AdminConnectorsAndTopologyStudio: React.FC<Props> = ({
       <ConnectorDryRunModal
         node={dryRunTargetNode}
         onClose={() => setDryRunTargetNode(null)}
+      />
+
+      <SubFlowModalCanvas
+        isOpen={!!subFlowModalNode}
+        parentNode={subFlowModalNode}
+        onClose={() => setSubFlowModalNode(null)}
+        onSaveSubFlow={handleSaveSubFlow}
+        connectorDefinitions={connectorDefinitions}
+        components={components}
       />
     </div>
   );

@@ -11,5 +11,6 @@ public interface BulkRecordErrorRepository extends JpaRepository<BulkRecordError
     List<BulkRecordErrorEntity> findByJobId(String jobId);
     List<BulkRecordErrorEntity> findByJobIdAndStepName(String jobId, String stepName);
     List<BulkRecordErrorEntity> findTop500ByOrderByCreatedAtDesc();
+    void deleteByJobId(String jobId);
 }
 

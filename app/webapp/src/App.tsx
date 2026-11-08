@@ -592,7 +592,7 @@ export const App: React.FC = () => {
                     gap: '6px'
                   }}
                 >
-                  <GitMerge size={16} /> Connectors & Topology
+                  <GitMerge size={16} /> Route DAG Studio (Nodes & Topology)
                 </button>
                 <button
                   onClick={() => setAdminSubTab('COMPONENTS')}
@@ -610,7 +610,7 @@ export const App: React.FC = () => {
                     gap: '6px'
                   }}
                 >
-                  <Code2 size={16} /> Component Library
+                  <Code2 size={16} /> <span>Node Library</span> <span style={{ fontSize: '11px', opacity: 0.7 }}>•</span> <span style={{ fontSize: '12px', opacity: 0.85 }}>Component Library</span>
                 </button>
                 <button
                   onClick={() => setAdminSubTab('DLQ')}

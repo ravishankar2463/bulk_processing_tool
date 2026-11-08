@@ -12,7 +12,9 @@ import {
   Trash2,
   PlugZap,
   ArrowRight,
-  Filter
+  Filter,
+  RefreshCw,
+  CheckCircle2
 } from 'lucide-react';
 import { ConnectorDefinition, ComponentInstance, StreamRole } from '../../../types/process';
 
@@ -22,6 +24,7 @@ interface Props {
   onAddConnectorNode: (definition: ConnectorDefinition) => void;
   onAddComponentNode: (component: ComponentInstance) => void;
   onOpenCreateCustomConnector: () => void;
+  onAddCustomCapsule?: () => void;
   onDeleteCustomConnector?: (definitionId: string) => void;
 }
 
@@ -31,6 +34,7 @@ export const ConnectorPalette: React.FC<Props> = ({
   onAddConnectorNode,
   onAddComponentNode,
   onOpenCreateCustomConnector,
+  onAddCustomCapsule,
   onDeleteCustomConnector
 }) => {
   const [activePaletteTab, setActivePaletteTab] = useState<'CONNECTORS' | 'COMPONENTS'>('CONNECTORS');
@@ -70,6 +74,10 @@ export const ConnectorPalette: React.FC<Props> = ({
       case 'REST_JSON': return <Globe size={16} className="text-blue-500" />;
       case 'SOAP_XML': return <Code2 size={16} className="text-amber-500" />;
       case 'DATABASE': return <Database size={16} className="text-purple-500" />;
+      case 'RETRY_GATEWAY': return <RefreshCw size={16} className="text-amber-500" />;
+      case 'COMPOSITE_SUBFLOW': return <Layers size={16} className="text-indigo-500" />;
+      case 'TERMINAL_SINK':
+      case 'TERMINAL': return <CheckCircle2 size={16} className="text-emerald-500" />;
       default: return <Cpu size={16} className="text-indigo-500" />;
     }
   };
@@ -301,7 +309,7 @@ export const ConnectorPalette: React.FC<Props> = ({
                           </p>
                           {def.composite && (
                             <span style={{ display: 'inline-block', marginTop: '4px', fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', background: '#ede9fe', color: '#6d28d9' }}>
-                              Paired Req & Res
+                              Composite Capsule (Sub-DAG)
                             </span>
                           )}
                         </div>
@@ -333,26 +341,52 @@ export const ConnectorPalette: React.FC<Props> = ({
                 <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted, #64748b)' }}>
                   Custom Connectors
                 </span>
-                <button
-                  type="button"
-                  data-testid="create-custom-connector-btn"
-                  onClick={onOpenCreateCustomConnector}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: 'var(--primary, #2563eb)',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '2px 4px'
-                  }}
-                >
-                  <Plus size={13} />
-                  <span>New Custom</span>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {onAddCustomCapsule && (
+                    <button
+                      type="button"
+                      data-testid="create-custom-capsule-btn"
+                      onClick={onAddCustomCapsule}
+                      title="Add Custom Encapsulated Collection Node to Canvas"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#7e22ce',
+                        background: '#faf5ff',
+                        border: '1px solid #e9d5ff',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        padding: '2px 6px'
+                      }}
+                    >
+                      <Layers size={12} />
+                      <span>+ Capsule</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="create-custom-connector-btn"
+                    onClick={onOpenCreateCustomConnector}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'var(--primary, #2563eb)',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '2px 4px'
+                    }}
+                  >
+                    <Plus size={13} />
+                    <span>New Custom</span>
+                  </button>
+                </div>
               </div>
 
               {customConnectors.length === 0 ? (

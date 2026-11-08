@@ -161,7 +161,7 @@ export const CustomConnectorWizardModal: React.FC<Props> = ({
             </div>
             <div>
               <h2 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-main, #0f172a)' }}>
-                Create Custom Connector
+                Create Custom Node
               </h2>
               <p style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)', margin: '2px 0 0' }}>
                 Define a dynamic protocol adapter, stream role invariants, and manifest schema
@@ -213,7 +213,7 @@ export const CustomConnectorWizardModal: React.FC<Props> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main, #334155)', marginBottom: '6px' }}>
-                Connector Name <span style={{ color: '#dc2626' }}>*</span>
+                Node Name <span style={{ color: '#dc2626' }}>*</span>
               </label>
               <input
                 type="text"
@@ -366,7 +366,7 @@ export const CustomConnectorWizardModal: React.FC<Props> = ({
 
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main, #334155)', marginBottom: '6px' }}>
-                Composite Pairing
+                Sub-DAG Encapsulation
               </label>
               <label style={{
                 display: 'flex',
@@ -386,7 +386,7 @@ export const CustomConnectorWizardModal: React.FC<Props> = ({
                   onChange={(e) => setComposite(e.target.checked)}
                   style={{ accentColor: '#2563eb', cursor: 'pointer' }}
                 />
-                <span style={{ fontWeight: 500 }}>Split into Request / Response pair on canvas</span>
+                <span style={{ fontWeight: 500 }}>Encapsulate as Sub-DAG Container Node</span>
               </label>
             </div>
           </div>
@@ -692,7 +692,7 @@ export const CustomConnectorWizardModal: React.FC<Props> = ({
             }}
           >
             <Check size={14} />
-            {saving ? 'Creating...' : 'Register Custom Connector'}
+            {saving ? 'Creating...' : 'Register Custom Node'}
           </button>
         </div>
       </div>

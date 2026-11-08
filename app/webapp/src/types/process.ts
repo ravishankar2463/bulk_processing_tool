@@ -37,6 +37,18 @@ export interface ProcessRoute {
   readonly recordsThroughputSec?: number;
   readonly successRatePercent: number;
   readonly pipelineSteps: ReadonlyArray<PipelineStepConfig>;
+  readonly retentionDays?: number;
+}
+
+export interface HousekeepingReport {
+  readonly routeId: string;
+  readonly retentionDays: number;
+  readonly cutoffTimestamp: string;
+  readonly purgedJobsCount: number;
+  readonly purgedErrorsCount: number;
+  readonly purgedBatchChunksCount: number;
+  readonly purgedBytes: number;
+  readonly executedAt: string;
 }
 
 /**
@@ -112,6 +124,14 @@ export interface BatchChunk {
 
 export type RecordStepStatus = 'PASSED_STEP' | 'FAILED_AT_STEP' | 'IN_FLIGHT';
 
+export interface RecordTraversalStep {
+  readonly nodeId: string;
+  readonly nodeName: string;
+  readonly timestamp: string;
+  readonly status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  readonly stepDetails?: string;
+}
+
 export interface FileRecordItem {
   readonly recordId: string;
   readonly lineNumber: number;
@@ -125,6 +145,7 @@ export interface FileRecordItem {
   readonly schemaTuple: Readonly<Record<string, string>>;
   readonly rawPayload: string;
   readonly processedAt?: string;
+  readonly traversalHistory?: ReadonlyArray<RecordTraversalStep>;
 }
 
 export interface RecordErrorItem {
@@ -138,6 +159,7 @@ export interface RecordErrorItem {
   readonly errorMessage: string;
   readonly rawPayload: string;
   readonly schemaTuple: Readonly<Record<string, string>>;
+  readonly traversalHistory?: ReadonlyArray<RecordTraversalStep>;
 }
 
 export interface ComponentInstance {
@@ -186,7 +208,7 @@ export interface FileDiagnosticsData {
 // ---------------------------------------------------------
 
 export type ConnectorCategory = 'SOURCE' | 'PROCESSOR' | 'SINK' | 'TRANSFORM' | 'CUSTOM';
-export type ConnectorProtocol = 'CSV' | 'REST_JSON' | 'SOAP_XML' | 'DATABASE' | 'KAFKA' | 'CUSTOM';
+export type ConnectorProtocol = 'CSV' | 'REST_JSON' | 'SOAP_XML' | 'DATABASE' | 'KAFKA' | 'RETRY_GATEWAY' | 'COMPOSITE_SUBFLOW' | 'TERMINAL_SINK' | 'CUSTOM';
 export type StreamRole = 'START' | 'MIDDLE' | 'END';
 
 export interface PropertyFieldManifest {
@@ -282,7 +304,30 @@ export interface ConnectorInstance {
   readonly createdBy?: string;
 }
 
-export type TopologyNodeType = 'COMPONENT' | 'CONNECTOR';
+export type BranchingPortConditionType = 'STATUS_CODE' | 'JSON_PATH' | 'SCRIPT' | 'EXPRESSION' | 'ALWAYS';
+export type BranchingPortActionType = 'CONTINUE' | 'CHAIN_REQUEST' | 'RETRY' | 'FAIL_RECORD';
+
+export interface BranchingPortConfig {
+  readonly portId: string;
+  readonly label: string;
+  readonly color: string; // e.g. '#22c55e', '#ef4444', '#f59e0b', '#3b82f6'
+  readonly conditionType: BranchingPortConditionType;
+  readonly conditionExpr: string;
+  readonly actionType: BranchingPortActionType;
+  readonly targetRefId?: string;
+}
+
+export interface RetryGatewayConfig {
+  readonly maxRetries: number;
+  readonly initialDelayMs: number;
+  readonly backoffMultiplier: number;
+  readonly maxDelayMs: number;
+  readonly jitter: boolean;
+  readonly retryOnStatusCodes?: ReadonlyArray<number>;
+  readonly retryOnErrorCodes?: ReadonlyArray<string>;
+}
+
+export type TopologyNodeType = 'COMPONENT' | 'CONNECTOR' | 'NODE';
 
 export interface TopologyNode {
   readonly id: string;
@@ -297,6 +342,30 @@ export interface TopologyNode {
   readonly inputPorts: ReadonlyArray<string>;
   readonly outputPorts: ReadonlyArray<string>;
   readonly config: Readonly<Record<string, unknown>>;
+  readonly branchingPorts?: ReadonlyArray<BranchingPortConfig>;
+  readonly subFlow?: RouteTopology;
+  readonly barrierMode?: 'STREAMING' | 'FILE_COMPLETION_BARRIER';
+}
+
+export type NodeCategory = 'SOURCE' | 'PROCESSOR' | 'VALIDATOR' | 'TRANSFORM' | 'SUB_DAG' | 'SINK' | 'CUSTOM';
+
+export interface NodeDefinition extends ConnectorDefinition {
+  readonly nodeCategory?: NodeCategory;
+}
+
+export type NodeInstance = ComponentInstance;
+
+export interface RecordRetryRequest {
+  readonly mode: 'FROM_FAILED_STEP' | 'FROM_START';
+}
+
+export interface RecordRetryResult {
+  readonly jobId: string;
+  readonly recordId?: string;
+  readonly batchId?: string;
+  readonly status: string;
+  readonly mode: string;
+  readonly message: string;
 }
 
 export interface TopologyEdge {
@@ -332,6 +401,8 @@ export interface ConnectorDryRunResult {
   readonly rawOutput: string;
   readonly errorMessage?: string;
   readonly logs: ReadonlyArray<string>;
+  readonly activeBranchPort?: string;
+  readonly enrichedRecord?: Record<string, unknown>;
 }
 
 export interface ScriptValidationRequest {

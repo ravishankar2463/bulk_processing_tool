@@ -18,7 +18,12 @@ import {
   ChevronRight,
   FileCode,
   Check,
-  Maximize2
+  Maximize2,
+  GitBranch,
+  Layers,
+  CornerDownRight,
+  RefreshCw,
+  Activity
 } from 'lucide-react';
 import { 
   TopologyNode, 
@@ -26,7 +31,10 @@ import {
   CsvFieldSchema, 
   CsvFieldDataType, 
   PropertyFieldManifest,
-  WsdlOperationMeta
+  WsdlOperationMeta,
+  BranchingPortConfig,
+  BranchingPortConditionType,
+  BranchingPortActionType
 } from '../../../types/process';
 import {
   validateScript,
@@ -40,8 +48,14 @@ interface Props {
   node: TopologyNode | null;
   definition?: ConnectorDefinition;
   onClose: () => void;
-  onSaveNodeConfig: (nodeId: string, updatedConfig: Record<string, unknown>, updatedLabel?: string) => void;
+  onSaveNodeConfig: (
+    nodeId: string, 
+    updatedConfig: Record<string, unknown>, 
+    updatedLabel?: string,
+    updatedBranchingPorts?: ReadonlyArray<BranchingPortConfig>
+  ) => void;
   onOpenDryRun: (node: TopologyNode) => void;
+  onOpenSubFlowModal?: (node: TopologyNode) => void;
 }
 
 export const ConnectorConfigDrawer: React.FC<Props> = ({
@@ -49,7 +63,8 @@ export const ConnectorConfigDrawer: React.FC<Props> = ({
   definition,
   onClose,
   onSaveNodeConfig,
-  onOpenDryRun
+  onOpenDryRun,
+  onOpenSubFlowModal
 }) => {
   if (!node) return null;
 
@@ -87,6 +102,27 @@ export const ConnectorConfigDrawer: React.FC<Props> = ({
   const [sampleXmlInput, setSampleXmlInput] = useState('');
   const [xpathError, setXpathError] = useState<string | null>(null);
 
+  // Dynamic Branching Pathways state
+  const getDefaultBranchingPorts = (n: TopologyNode): BranchingPortConfig[] => {
+    if (n.branchingPorts && n.branchingPorts.length > 0) {
+      return [...n.branchingPorts];
+    }
+    if (n.outputPorts.some(p => p.toLowerCase().includes('retry'))) {
+      return [
+        { portId: 'retry', label: 'RETRY (Delayed Loop)', color: '#f59e0b', conditionType: 'ALWAYS', conditionExpr: 'attempts <= maxRetries', actionType: 'RETRY' },
+        { portId: 'exhausted', label: 'EXHAUSTED (DLQ)', color: '#ef4444', conditionType: 'ALWAYS', conditionExpr: 'attempts > maxRetries', actionType: 'FAIL_RECORD' }
+      ];
+    }
+    return [
+      { portId: 'pass', label: 'PASS (2xx / Success)', color: '#22c55e', conditionType: 'STATUS_CODE', conditionExpr: '200..299', actionType: 'CONTINUE' },
+      { portId: 'fail', label: 'FAIL (Error / Timeout)', color: '#ef4444', conditionType: 'STATUS_CODE', conditionExpr: '400..599', actionType: 'FAIL_RECORD' }
+    ];
+  };
+
+  const [branchingPorts, setBranchingPorts] = useState<BranchingPortConfig[]>(getDefaultBranchingPorts(node));
+  const [isBranchingOpen, setIsBranchingOpen] = useState(false);
+  const [barrierReleased, setBarrierReleased] = useState(false);
+
   // Sync state when selected node changes
   useEffect(() => {
     setLabel(node.label);
@@ -94,6 +130,8 @@ export const ConnectorConfigDrawer: React.FC<Props> = ({
     setIsCodeHookOpen(Boolean(node.config?.customCode));
     setScriptValidationStatus(null);
     setWsdlStatusMessage(null);
+    setBranchingPorts(getDefaultBranchingPorts(node));
+    setBarrierReleased(false);
   }, [node]);
 
   const handleConfigChange = (key: string, value: any) => {
@@ -145,7 +183,7 @@ export const ConnectorConfigDrawer: React.FC<Props> = ({
   };
 
   const handleSave = () => {
-    onSaveNodeConfig(node.id, config, label);
+    onSaveNodeConfig(node.id, config, label, branchingPorts);
   };
 
   // Script validation handler
@@ -436,6 +474,295 @@ export const ConnectorConfigDrawer: React.FC<Props> = ({
               {nodeRole === 'START' && 'Produces stream records. Output ports only (cannot receive upstream stream inputs).'}
               {nodeRole === 'MIDDLE' && 'Pipelined step. Accepts upstream input records and forwards processed records downstream.'}
               {nodeRole === 'END' && 'Stream terminal / sink. Consumes and persists records. No downstream outgoing pipes.'}
+            </div>
+          </div>
+
+          {/* Barrier Mode Option for END Nodes */}
+          {nodeRole === 'END' && (
+            <div 
+              data-testid="end-node-barrier-section"
+              style={{
+                padding: '12px 14px',
+                borderRadius: '8px',
+                background: '#faf5ff',
+                border: '1px solid #e9d5ff',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#6b21a8' }}>
+                  Execution Timing & File Completion Barrier
+                </span>
+                <span style={{ fontSize: '10px', fontWeight: 600, color: '#9333ea', background: '#f3e8ff', padding: '2px 6px', borderRadius: '4px' }}>
+                  END SINK ONLY
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: '11px', color: '#475569', lineHeight: 1.4 }}>
+                Configure whether this End Node writes records continuously as batches arrive, or waits until all batches and records of the entire file have drained through all upstream nodes.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  data-testid="barrier-mode-streaming"
+                  onClick={() => handleConfigChange('barrierMode', 'STREAMING')}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '6px',
+                    border: `2px solid ${(config.barrierMode || node.barrierMode || 'STREAMING') === 'STREAMING' ? '#9333ea' : '#e2e8f0'}`,
+                    background: (config.barrierMode || node.barrierMode || 'STREAMING') === 'STREAMING' ? '#f3e8ff' : '#ffffff',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: (config.barrierMode || node.barrierMode || 'STREAMING') === 'STREAMING' ? '#581c87' : '#475569',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>Continuous Streaming</div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>Consume as batches arrive</div>
+                </button>
+                <button
+                  type="button"
+                  data-testid="barrier-mode-file-completion"
+                  onClick={() => handleConfigChange('barrierMode', 'FILE_COMPLETION_BARRIER')}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '6px',
+                    border: `2px solid ${(config.barrierMode || node.barrierMode) === 'FILE_COMPLETION_BARRIER' ? '#9333ea' : '#e2e8f0'}`,
+                    background: (config.barrierMode || node.barrierMode) === 'FILE_COMPLETION_BARRIER' ? '#f3e8ff' : '#ffffff',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: (config.barrierMode || node.barrierMode) === 'FILE_COMPLETION_BARRIER' ? '#581c87' : '#475569',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>File Completion Barrier</div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>Wait for all records to drain</div>
+                </button>
+              </div>
+
+              {(config.barrierMode || node.barrierMode) === 'FILE_COMPLETION_BARRIER' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px', padding: '8px 10px', background: '#ffffff', borderRadius: '6px', border: '1px solid #d8b4fe' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: '#6b21a8' }}>
+                      Status: <strong>Auto-Triggers on File Drain</strong> (Surviving records execute even if upstream records fault)
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="force-execute-barrier-btn"
+                      onClick={() => setBarrierReleased(true)}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        background: '#7e22ce',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Force Execute Now
+                    </button>
+                  </div>
+                  {barrierReleased && (
+                    <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600 }}>
+                      ✓ Barrier released: Executing surviving records now
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= UNIFIED STREAM PIPELINE SECTION ================= */}
+          <div 
+            data-testid="stream-pipeline-section"
+            style={{
+              borderRadius: '10px',
+              border: '1px solid #e2e8f0',
+              background: '#ffffff',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{
+              padding: '10px 14px',
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={16} className="text-blue-600" />
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
+                  Stream Pipeline Contract (In ➔ Logic ➔ Out)
+                </span>
+              </div>
+              <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', background: '#dbeafe', color: '#1e40af' }}>
+                {nodeRole === 'START' ? 'Ingress Root' : (nodeRole === 'END' ? 'Terminal Sink' : 'Pipelined Step')}
+              </span>
+            </div>
+
+            <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 1. STREAM IN */}
+              <div style={{ padding: '10px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    1. Stream In (Input Records)
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>
+                    {nodeRole === 'START' ? 'No Upstream Input' : 'Consuming Record Stream'}
+                  </span>
+                </div>
+                {nodeRole === 'START' ? (
+                  <p style={{ margin: 0, fontSize: '12px', color: '#059669', fontWeight: 500 }}>
+                    ✓ Root Ingress Source — generates initial record stream from external source.
+                  </p>
+                ) : (
+                  <div>
+                    <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#64748b' }}>
+                      Incoming fields available for processing and transformation:
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      {((config.streamInFields as string[]) || ['customer_id', 'full_name', 'email', 'balance', 'timestamp']).map((f, i) => (
+                        <span key={i} style={{ fontSize: '11px', padding: '2px 7px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontFamily: 'monospace', fontWeight: 600 }}>
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. LOGIC & OUTPUT PREPARATION */}
+              <div style={{ padding: '10px', borderRadius: '8px', background: '#faf5ff', border: '1px solid #e9d5ff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#6b21a8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    2. Node Processing Logic & Output Object Preparation
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#7e22ce', fontWeight: 600 }}>
+                    Prepares Next Node's Input
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#475569', lineHeight: 1.4 }}>
+                  Processes incoming records and packages the output object emitted to the downstream node.
+                </p>
+                
+                {/* Declarative / Script mode pill */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleConfigChange('streamLogicMode', 'DECLARATIVE')}
+                    style={{
+                      flex: 1,
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      borderRadius: '5px',
+                      border: '1px solid',
+                      borderColor: (config.streamLogicMode || 'DECLARATIVE') === 'DECLARATIVE' ? '#a855f7' : '#cbd5e1',
+                      background: (config.streamLogicMode || 'DECLARATIVE') === 'DECLARATIVE' ? '#f3e8ff' : '#ffffff',
+                      color: (config.streamLogicMode || 'DECLARATIVE') === 'DECLARATIVE' ? '#7e22ce' : '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Declarative Output Preparation
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleConfigChange('streamLogicMode', 'JANINO_CODE');
+                      setIsCodeHookOpen(true);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      borderRadius: '5px',
+                      border: '1px solid',
+                      borderColor: config.streamLogicMode === 'JANINO_CODE' ? '#a855f7' : '#cbd5e1',
+                      background: config.streamLogicMode === 'JANINO_CODE' ? '#f3e8ff' : '#ffffff',
+                      color: config.streamLogicMode === 'JANINO_CODE' ? '#7e22ce' : '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Janino Java 21 Code Hook
+                  </button>
+                </div>
+
+                {/* Declarative Output Mapping Builder */}
+                {(!config.streamLogicMode || config.streamLogicMode === 'DECLARATIVE') ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#334155' }}>
+                      Output Object Attributes Emitted:
+                    </div>
+                    {/* Key-Value Output Builder */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {Object.entries((config.outputObjectMap as Record<string, string>) || {
+                        id: '${input.customer_id}',
+                        status: 'VERIFIED',
+                        processedAt: 'System.currentTimeMillis()',
+                        payload: '${input}'
+                      }).map(([k, v], idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            value={k}
+                            readOnly
+                            style={{ width: '38%', padding: '4px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#f8fafc', fontFamily: 'monospace' }}
+                          />
+                          <span style={{ fontSize: '11px', color: '#94a3b8' }}>➔</span>
+                          <input
+                            type="text"
+                            value={v}
+                            onChange={(e) => {
+                              const existing = { ...(config.outputObjectMap as Record<string, string> || {
+                                id: '${input.customer_id}',
+                                status: 'VERIFIED',
+                                processedAt: 'System.currentTimeMillis()',
+                                payload: '${input}'
+                              }) };
+                              existing[k] = e.target.value;
+                              handleConfigChange('outputObjectMap', existing);
+                            }}
+                            style={{ flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1', fontFamily: 'monospace' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '11px', color: '#6b21a8', padding: '6px 10px', background: '#f3e8ff', borderRadius: '6px' }}>
+                    Janino Java 21 Script active. Output prepared via Java return value: <code>return output;</code>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. STREAM OUT */}
+              <div style={{ padding: '10px', borderRadius: '8px', background: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    3. Stream Out (Forwarded Downstream)
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#047857', fontWeight: 600 }}>
+                    {nodeRole === 'END' ? 'Terminal Sink • Zero Out Ports' : 'Next Node’s Input'}
+                  </span>
+                </div>
+                {nodeRole === 'END' ? (
+                  <p style={{ margin: 0, fontSize: '12px', color: '#065f46', fontWeight: 500 }}>
+                    ✓ Stream Terminal Sink — seals the stream and commits file stage to COMPLETED (100% progress). No downstream outgoing stream.
+                  </p>
+                ) : (
+                  <p style={{ margin: 0, fontSize: '11px', color: '#047857' }}>
+                    Output object will be passed directly into the next connected node's input port.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1260,6 +1587,185 @@ export const ConnectorConfigDrawer: React.FC<Props> = ({
                     {scriptValidationStatus.errorMessage}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* ---------------- ENCAPSULATED SUB-FLOW BANNER (IF APPLICABLE) ---------------- */}
+          {(node.subFlow != null || node.config?.isSubFlow === true || node.refId.includes('subflow') || node.refId.includes('rest-json') || node.refId.includes('soap-xml')) && (
+            <div style={{
+              padding: '12px 14px',
+              borderRadius: '8px',
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Layers size={16} className="text-emerald-600" />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#166534' }}>
+                    Encapsulated Service Sub-Flow
+                  </span>
+                </div>
+                <span style={{ fontSize: '10px', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                  {node.subFlow?.nodes.length || 5} Inner Nodes
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: '11px', color: '#166534', lineHeight: 1.4 }}>
+                Contains internal Request, Response capture, and Branch Decision routing.
+              </p>
+              <button
+                type="button"
+                data-testid="open-subflow-canvas-drawer-btn"
+                onClick={() => onOpenSubFlowModal && onOpenSubFlowModal(node)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '7px 12px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  borderRadius: '6px',
+                  background: '#16a34a',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <Maximize2 size={13} /> Open Dedicated Sub-Flow Canvas
+              </button>
+            </div>
+          )}
+
+          {/* ---------------- BRANCHING & ROUTING PATHWAYS ACCORDION ---------------- */}
+          <div style={{ borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', overflow: 'hidden' }}>
+            <div style={{ width: '100%', padding: '10px 14px', background: '#f8fafc', borderBottom: isBranchingOpen ? '1px solid #e2e8f0' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button
+                type="button"
+                data-testid="toggle-branching-accordion"
+                onClick={() => setIsBranchingOpen(!isBranchingOpen)}
+                style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: 0 }}
+              >
+                <GitBranch size={16} className="text-blue-600" />
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
+                  Branching & Routing Pathways
+                </span>
+                <span style={{ fontSize: '10px', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                  {branchingPorts.length} Exits
+                </span>
+                {isBranchingOpen ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
+              </button>
+              <button
+                type="button"
+                data-testid="add-branch-port-btn"
+                onClick={() => {
+                  const newPort: BranchingPortConfig = {
+                    portId: `branch_${branchingPorts.length + 1}`,
+                    label: `Branch ${branchingPorts.length + 1}`,
+                    color: '#f59e0b',
+                    conditionType: 'STATUS_CODE',
+                    conditionExpr: '500..599',
+                    actionType: 'RETRY'
+                  };
+                  setBranchingPorts([...branchingPorts, newPort]);
+                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', fontSize: '10px', fontWeight: 600, borderRadius: '4px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', cursor: 'pointer' }}
+              >
+                <Plus size={11} /> Add Exit Port
+              </button>
+            </div>
+
+            {isBranchingOpen && (
+              <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <p style={{ margin: 0, fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+                  Configure dynamic exit pathways and conditional actions (Chain Request, Retry Policy, or Quarantine).
+                </p>
+                {branchingPorts.map((bp, idx) => (
+                  <div key={bp.portId} style={{ padding: '10px', borderRadius: '8px', background: '#f8fafc', border: `1px solid ${bp.color}50`, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: bp.color }} />
+                        <input
+                          type="text"
+                          value={bp.label}
+                          onChange={(e) => {
+                            const updated = [...branchingPorts];
+                            updated[idx] = { ...updated[idx], label: e.target.value };
+                            setBranchingPorts(updated);
+                          }}
+                          style={{ fontSize: '11px', fontWeight: 700, border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 6px', background: '#ffffff', color: '#0f172a' }}
+                        />
+                        <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#64748b' }}>
+                          ({bp.portId})
+                        </span>
+                      </div>
+                      {branchingPorts.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setBranchingPorts(branchingPorts.filter((_, i) => i !== idx))}
+                          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}
+                          title="Remove Branch Port"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      <div>
+                        <span style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '2px' }}>Condition</span>
+                        <select
+                          value={bp.conditionType}
+                          onChange={(e) => {
+                            const updated = [...branchingPorts];
+                            updated[idx] = { ...updated[idx], conditionType: e.target.value as BranchingPortConditionType };
+                            setBranchingPorts(updated);
+                          }}
+                          style={{ width: '100%', fontSize: '10px', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+                        >
+                          <option value="STATUS_CODE">HTTP Status Code</option>
+                          <option value="JSON_PATH">JSONPath Check</option>
+                          <option value="SCRIPT">Janino Script</option>
+                          <option value="ALWAYS">Always Take</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '2px' }}>Action</span>
+                        <select
+                          value={bp.actionType}
+                          onChange={(e) => {
+                            const updated = [...branchingPorts];
+                            updated[idx] = { ...updated[idx], actionType: e.target.value as BranchingPortActionType };
+                            setBranchingPorts(updated);
+                          }}
+                          style={{ width: '100%', fontSize: '10px', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+                        >
+                          <option value="CONTINUE">Forward to Next Node</option>
+                          <option value="CHAIN_REQUEST">Chain Another Request</option>
+                          <option value="RETRY">Trigger Retry Policy</option>
+                          <option value="FAIL_RECORD">Fail / Quarantine Record</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="e.g. 200..299 or $.status == 'APPROVED'"
+                        value={bp.conditionExpr}
+                        onChange={(e) => {
+                          const updated = [...branchingPorts];
+                          updated[idx] = { ...updated[idx], conditionExpr: e.target.value };
+                          setBranchingPorts(updated);
+                        }}
+                        style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -11,6 +11,21 @@ public record ProcessRouteDto(
     int activeFilesInFlight,
     double aggregateThroughputRecordsPerSec,
     double successRatePercent,
-    List<PipelineStepConfigDto> pipelineSteps
-) {}
+    List<PipelineStepConfigDto> pipelineSteps,
+    Integer retentionDays
+) {
+    public ProcessRouteDto(
+        String id,
+        String name,
+        String description,
+        String status,
+        String health,
+        int activeFilesInFlight,
+        double aggregateThroughputRecordsPerSec,
+        double successRatePercent,
+        List<PipelineStepConfigDto> pipelineSteps
+    ) {
+        this(id, name, description, status, health, activeFilesInFlight, aggregateThroughputRecordsPerSec, successRatePercent, pipelineSteps, 30);
+    }
+}
 

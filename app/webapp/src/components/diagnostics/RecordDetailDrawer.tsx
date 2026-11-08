@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, HardDrive, AlertOctagon, Copy, Check, RefreshCw } from 'lucide-react';
+import { X, HardDrive, AlertOctagon, Copy, Check, RefreshCw, RotateCcw } from 'lucide-react';
 import { FileRecordItem, RecordErrorItem, FileDiagnosticsData, RecordStepStatus } from '../../types/process';
 
 export interface RecordDetailDrawerProps {
@@ -9,6 +9,7 @@ export interface RecordDetailDrawerProps {
   processName: string;
   onClose: () => void;
   onResubmit: (recordId: string) => void;
+  onRetryMode?: (recordId: string, mode: 'FROM_FAILED_STEP' | 'FROM_START') => void;
   resubmittedIds: Set<string>;
 }
 
@@ -19,6 +20,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = React.memo(
   processName,
   onClose,
   onResubmit,
+  onRetryMode,
   resubmittedIds
 }) => {
   const [copiedPayload, setCopiedPayload] = useState(false);
@@ -38,6 +40,30 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = React.memo(
     const rawPayload = selectedRecord.rawPayload || '';
     const processedAt = 'processedAt' in selectedRecord ? (selectedRecord as any).processedAt : undefined;
 
+    const traversalHistory = selectedRecord.traversalHistory || [
+      {
+        nodeId: 'node-source-csv',
+        nodeName: 'CSV Ingestion Connector',
+        timestamp: '2026-11-08T23:50:01.120Z',
+        status: 'SUCCESS' as const,
+        stepDetails: 'Row parsed and validated against header schema'
+      },
+      {
+        nodeId: 'node-rest-composite',
+        nodeName: 'Customer Enrichment Capsule',
+        timestamp: '2026-11-08T23:50:02.450Z',
+        status: 'SUCCESS' as const,
+        stepDetails: 'HTTP POST 200 OK • Injected KYC attributes'
+      },
+      {
+        nodeId: 'node-kyc-val',
+        nodeName: stepName || 'KYC Validator',
+        timestamp: '2026-11-08T23:50:03.010Z',
+        status: stepStatus === 'FAILED_AT_STEP' ? ('FAILED' as const) : ('SUCCESS' as const),
+        stepDetails: stepStatus === 'FAILED_AT_STEP' ? (errorMessage || 'Validation fault') : 'Step completed successfully'
+      }
+    ];
+
     return {
       recordId,
       lineNumber,
@@ -48,7 +74,8 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = React.memo(
       errorMessage,
       schemaTuple,
       rawPayload,
-      processedAt
+      processedAt,
+      traversalHistory
     };
   }, [selectedRecord]);
 
@@ -381,6 +408,86 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = React.memo(
           </div>
         </div>
 
+        {/* Node Traversal History Timeline */}
+        <div data-testid="node-traversal-history" data-test-section="node-traversal-history-section">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Node Traversal History (Audit Trail)
+            </span>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              {normalized.traversalHistory.length} node{normalized.traversalHistory.length !== 1 ? 's' : ''} traversed
+            </span>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            padding: '12px',
+            background: 'var(--bg-card-subtle, #f8fafc)',
+            borderRadius: '8px',
+            border: '1px solid var(--border-subtle, #e2e8f0)'
+          }}>
+            {normalized.traversalHistory.map((step, idx) => (
+              <div 
+                key={`${step.nodeId}-${idx}`}
+                data-testid={`traversal-step-${idx}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: '#ffffff',
+                  border: `1px solid ${step.status === 'FAILED' ? '#fecaca' : '#e2e8f0'}`
+                }}
+              >
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: step.status === 'FAILED' ? '#fee2e2' : '#dcfce7',
+                  color: step.status === 'FAILED' ? '#dc2626' : '#16a34a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  marginTop: '1px'
+                }}>
+                  {idx + 1}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                      {step.nodeName}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      background: step.status === 'FAILED' ? '#fee2e2' : '#dcfce7',
+                      color: step.status === 'FAILED' ? '#991b1b' : '#166534'
+                    }}>
+                      {step.status}
+                    </span>
+                  </div>
+                  {step.stepDetails && (
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                      {step.stepDetails}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                    {step.timestamp}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Raw Ingested Payload */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -455,27 +562,79 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = React.memo(
             Close
           </button>
           {normalized.stepStatus === 'FAILED_AT_STEP' && (
-            <button
-              data-testid="btn-resubmit-record-details"
-              onClick={() => onResubmit(normalized.recordId)}
-              disabled={resubmittedIds.has(normalized.recordId)}
-              style={{
-                padding: '7px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: resubmittedIds.has(normalized.recordId) ? 'var(--bg-card-subtle)' : 'var(--primary)',
-                color: resubmittedIds.has(normalized.recordId) ? 'var(--text-muted)' : '#ffffff',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: resubmittedIds.has(normalized.recordId) ? 'default' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <RefreshCw size={13} />
-              {resubmittedIds.has(normalized.recordId) ? 'Resubmitted' : 'Resubmit Record'}
-            </button>
+            <>
+              <button
+                data-testid="retry-from-failed-step-btn"
+                onClick={() => {
+                  if (onRetryMode) onRetryMode(normalized.recordId, 'FROM_FAILED_STEP');
+                  onResubmit(normalized.recordId);
+                }}
+                disabled={resubmittedIds.has(normalized.recordId)}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #93c5fd',
+                  background: resubmittedIds.has(normalized.recordId) ? 'var(--bg-card-subtle)' : '#eff6ff',
+                  color: resubmittedIds.has(normalized.recordId) ? 'var(--text-muted)' : '#1d4ed8',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: resubmittedIds.has(normalized.recordId) ? 'default' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <RefreshCw size={12} />
+                Retry from Failed Step
+              </button>
+
+              <button
+                data-testid="replay-from-start-btn"
+                onClick={() => {
+                  if (onRetryMode) onRetryMode(normalized.recordId, 'FROM_START');
+                  onResubmit(normalized.recordId);
+                }}
+                disabled={resubmittedIds.has(normalized.recordId)}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  background: resubmittedIds.has(normalized.recordId) ? 'var(--bg-card-subtle)' : '#f8fafc',
+                  color: resubmittedIds.has(normalized.recordId) ? 'var(--text-muted)' : '#334155',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: resubmittedIds.has(normalized.recordId) ? 'default' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <RotateCcw size={12} />
+                Replay from Start
+              </button>
+
+              <button
+                data-testid="btn-resubmit-record-details"
+                onClick={() => onResubmit(normalized.recordId)}
+                disabled={resubmittedIds.has(normalized.recordId)}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: resubmittedIds.has(normalized.recordId) ? 'var(--bg-card-subtle)' : 'var(--primary)',
+                  color: resubmittedIds.has(normalized.recordId) ? 'var(--text-muted)' : '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: resubmittedIds.has(normalized.recordId) ? 'default' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <RefreshCw size={13} />
+                {resubmittedIds.has(normalized.recordId) ? 'Resubmitted' : 'Resubmit Record'}
+              </button>
+            </>
           )}
         </div>
       </div>

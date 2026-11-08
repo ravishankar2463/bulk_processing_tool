@@ -95,7 +95,7 @@ export const UserDashboard: React.FC<Props> = ({
             </span>
           </div>
           <p style={{ margin: 0, color: 'var(--text-muted, #64748b)', fontSize: '13px' }}>
-            Real-time streaming status of asynchronous bulk processing jobs powered by Java 21 Loom Virtual Threads
+            Real-time streaming status of asynchronous bulk processing jobs across processes and files
           </p>
         </div>
 
@@ -233,16 +233,16 @@ export const UserDashboard: React.FC<Props> = ({
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Engine Concurrency</span>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active Batches</span>
             <div style={{ background: '#fef3c7', color: '#92400e', padding: '4px', borderRadius: '6px' }}>
-              <Cpu size={14} />
+              <Layers size={14} />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
             <span style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-main, #0f172a)' }} className="tabular-nums">
-              Loom O(1)
+              {jobs.filter(j => j.status === 'PROCESSING' || j.status === 'PENDING').length}
             </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>constant RAM</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>in flight</span>
           </div>
         </div>
       </div>

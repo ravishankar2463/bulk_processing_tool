@@ -47,6 +47,9 @@ public class RouteConfigEntity {
     @Column(name = "status", nullable = false, length = 32)
     private String status = "ACTIVE";
 
+    @Column(name = "retention_days", nullable = false)
+    private Integer retentionDays = 30;
+
     @Column(name = "version", nullable = false)
     private int version = 1;
 
@@ -92,6 +95,16 @@ public class RouteConfigEntity {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public Integer getRetentionDays() { return retentionDays != null ? retentionDays : 30; }
+    public void setRetentionDays(Integer retentionDays) {
+        if (retentionDays == null) {
+            this.retentionDays = 30;
+        } else {
+            // Hard ceiling invariant: min 1, max 90 days (3 months ceiling)
+            this.retentionDays = Math.max(1, Math.min(90, retentionDays));
+        }
+    }
 
     public int getVersion() { return version; }
     public void setVersion(int version) { this.version = version; }

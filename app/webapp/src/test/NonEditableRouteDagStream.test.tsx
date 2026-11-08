@@ -9,7 +9,7 @@ describe('NonEditableRouteDagStream Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('START • SOURCE')).toBeInTheDocument();
-      expect(screen.getByText('END • TERMINAL')).toBeInTheDocument();
+      expect(screen.getAllByText('END • TERMINAL').length).toBeGreaterThan(0);
     });
 
     const middleBadges = screen.getAllByText('MIDDLE • PIPE');

@@ -9,7 +9,8 @@ import {
 import { 
   fetchJobDiagnostics, 
   getImmediateJobDiagnostics, 
-  resubmitDlqRecord 
+  resubmitDlqRecord,
+  retryRecord
 } from '../../services/apiClient';
 import { generateDiagnosticsCsv } from '../../utils/csvSanitizer';
 
@@ -185,6 +186,16 @@ export const FileDiagnosticsModal: React.FC<FileDiagnosticsModalProps> = ({
     await resubmitDlqRecord(recordId);
     setResubmittedIds(prev => new Set(prev).add(recordId));
   }, []);
+
+  // Dual-mode retry handler (from failed step or replay from start)
+  const handleRetryMode = useCallback(async (recordId: string, mode: 'FROM_FAILED_STEP' | 'FROM_START') => {
+    try {
+      await retryRecord(resolvedJobId, recordId, mode);
+      setResubmittedIds(prev => new Set(prev).add(recordId));
+    } catch (err) {
+      console.warn('Record retry failure:', err);
+    }
+  }, [resolvedJobId]);
 
   // CSV Export handler
   const handleExportCsv = useCallback(() => {
@@ -444,6 +455,7 @@ export const FileDiagnosticsModal: React.FC<FileDiagnosticsModalProps> = ({
         processName={resolvedProcessName}
         onClose={() => setSelectedRecord(null)}
         onResubmit={handleResubmit}
+        onRetryMode={handleRetryMode}
         resubmittedIds={resubmittedIds}
       />
     </div>

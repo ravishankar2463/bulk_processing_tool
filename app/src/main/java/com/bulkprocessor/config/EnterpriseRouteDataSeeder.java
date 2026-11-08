@@ -121,6 +121,39 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                                 "database",
                                 false,
                                 "{\"properties\":[{\"key\":\"jdbcUrl\",\"label\":\"JDBC Connection URL\",\"type\":\"string\",\"placeholder\":\"jdbc:postgresql://postgres:5432/bulk_analytics\",\"required\":true},{\"key\":\"targetTable\",\"label\":\"Target Table\",\"type\":\"string\",\"placeholder\":\"processed_records\",\"required\":true},{\"key\":\"batchSize\",\"label\":\"Batch Insert Size\",\"type\":\"number\",\"defaultValue\":1000,\"required\":true},{\"key\":\"upsertKey\",\"label\":\"Conflict / Upsert Key\",\"type\":\"string\",\"required\":false}]}");
+
+                seedConnectorDef(
+                                "conn-def-terminal-sink",
+                                "Terminal Completion Sink",
+                                "SINK",
+                                "END",
+                                "TERMINAL",
+                                "Blank terminal end node that completes and seals the file stream, marking execution 100% complete without external side effects.",
+                                "check-circle",
+                                false,
+                                "{\"properties\":[{\"key\":\"sealStream\",\"label\":\"Seal File Stream\",\"type\":\"boolean\",\"defaultValue\":true,\"required\":true},{\"key\":\"markCompleted\",\"label\":\"Mark Job Completed (100%)\",\"type\":\"boolean\",\"defaultValue\":true,\"required\":true}]}");
+
+                seedConnectorDef(
+                                "conn-def-retry-gateway",
+                                "Retry & Delay Gateway",
+                                "PROCESSOR",
+                                "MIDDLE",
+                                "RETRY_GATEWAY",
+                                "Resilience router implementing exponential backoff, jittered retries, and exhaustion routing to Dead Letter Queues (DLQ).",
+                                "refresh-cw",
+                                false,
+                                "{\"properties\":[{\"key\":\"maxRetries\",\"label\":\"Max Retry Attempts\",\"type\":\"number\",\"defaultValue\":3,\"required\":true},{\"key\":\"initialDelayMs\",\"label\":\"Initial Delay (ms)\",\"type\":\"number\",\"defaultValue\":1000,\"required\":true},{\"key\":\"backoffMultiplier\",\"label\":\"Backoff Multiplier\",\"type\":\"number\",\"defaultValue\":2.0,\"required\":true},{\"key\":\"maxDelayMs\",\"label\":\"Max Delay Ceiling (ms)\",\"type\":\"number\",\"defaultValue\":30000,\"required\":true},{\"key\":\"jitter\",\"label\":\"Add Randomized Jitter\",\"type\":\"boolean\",\"defaultValue\":true,\"required\":false}]}");
+
+                seedConnectorDef(
+                                "conn-def-composite-subflow",
+                                "Encapsulated Service Sub-Flow",
+                                "PROCESSOR",
+                                "MIDDLE",
+                                "COMPOSITE_SUBFLOW",
+                                "Encapsulated sub-DAG container bundling Ingress, Request, Response extraction, and Branch Decision Routing in a drill-down canvas.",
+                                "layers",
+                                true,
+                                "{\"properties\":[{\"key\":\"serviceName\",\"label\":\"Service Block Name\",\"type\":\"string\",\"defaultValue\":\"REST Customer Enrichment Service\",\"required\":true}]}");
         }
 
         private void seedConnectorDef(
@@ -295,6 +328,7 @@ public class EnterpriseRouteDataSeeder implements ApplicationRunner {
                         route.setStatus(status);
                         route.setVersion(1);
                         route.setCreatedBy("SYSTEM_SEEDER");
+                        route.setRetentionDays(30);
                         route.setUpdatedAt(Instant.now());
                         routeConfigRepository.save(route);
                 }

@@ -142,7 +142,8 @@ public class ProcessCatalogController {
             activeFilesInFlight,
             throughput,
             successRate,
-            pipelineSteps
+            pipelineSteps,
+            route.getRetentionDays()
         );
     }
 

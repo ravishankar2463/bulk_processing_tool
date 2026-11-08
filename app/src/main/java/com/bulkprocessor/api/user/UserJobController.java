@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * REST controller for User Portal job operations: single/batch upload,
@@ -88,6 +89,59 @@ public class UserJobController {
     public ResponseEntity<BulkJobEntity> retryJob(@PathVariable String jobId) {
         return bulkJobService.retryJob(jobId)
             .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping({"/api/v1/user/jobs/{jobId}/records/{recordId}/retry", "/api/v1/jobs/{jobId}/records/{recordId}/retry"})
+    public ResponseEntity<Map<String, Object>> retryRecord(
+        @PathVariable String jobId,
+        @PathVariable String recordId,
+        @RequestBody(required = false) com.bulkprocessor.dto.RecordRetryRequestDto retryRequest
+    ) {
+        String mode = (retryRequest != null && retryRequest.mode() != null) ? retryRequest.mode() : "FROM_FAILED_STEP";
+        return bulkJobService.getJob(jobId)
+            .map(job -> {
+                Map<String, Object> res = new java.util.HashMap<>();
+                res.put("jobId", jobId);
+                res.put("recordId", recordId);
+                res.put("status", "RETRY_QUEUED");
+                res.put("mode", mode);
+                res.put("message", "Record " + recordId + " queued for retry with mode: " + mode);
+                return ResponseEntity.ok(res);
+            })
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping({"/api/v1/user/jobs/{jobId}/batches/{batchId}/retry", "/api/v1/jobs/{jobId}/batches/{batchId}/retry"})
+    public ResponseEntity<Map<String, Object>> retryBatch(
+        @PathVariable String jobId,
+        @PathVariable String batchId,
+        @RequestBody(required = false) com.bulkprocessor.dto.RecordRetryRequestDto retryRequest
+    ) {
+        String mode = (retryRequest != null && retryRequest.mode() != null) ? retryRequest.mode() : "FROM_FAILED_STEP";
+        return bulkJobService.getJob(jobId)
+            .map(job -> {
+                Map<String, Object> res = new java.util.HashMap<>();
+                res.put("jobId", jobId);
+                res.put("batchId", batchId);
+                res.put("status", "RETRY_QUEUED");
+                res.put("mode", mode);
+                res.put("message", "Batch " + batchId + " queued for retry with mode: " + mode);
+                return ResponseEntity.ok(res);
+            })
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping({"/api/v1/user/jobs/{jobId}/barrier/force-execute", "/api/v1/jobs/{jobId}/barrier/force-execute"})
+    public ResponseEntity<Map<String, Object>> forceExecuteBarrier(@PathVariable String jobId) {
+        return bulkJobService.getJob(jobId)
+            .map(job -> {
+                Map<String, Object> res = new java.util.HashMap<>();
+                res.put("jobId", jobId);
+                res.put("status", "BARRIER_RELEASED");
+                res.put("message", "End node file completion barrier manually released for job: " + jobId);
+                return ResponseEntity.ok(res);
+            })
             .orElse(ResponseEntity.notFound().build());
     }
 

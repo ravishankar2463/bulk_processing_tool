@@ -78,5 +78,53 @@ describe('AdminRouteStudio Component', () => {
     expect(editedRoute.routeId).toBe('csv-customer-ingest');
     expect(editedRoute.name).toBe('Customer CSV Ingestion Pipeline');
   });
+
+  it('renders the File Housekeeping panel and enforces 90 days retention ceiling', async () => {
+    render(
+      <AdminRouteStudio
+        routes={mockRoutes}
+        onToggleStatus={() => {}}
+        onEditRoute={() => {}}
+        onCreateRoute={() => {}}
+      />
+    );
+
+    expect(screen.getAllByText(/File Housekeeping & Retention/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/\(Max ceiling: 90 days \/ 3 months\)/i)[0]).toBeInTheDocument();
+
+    const input = screen.getByTestId('retention-input-csv-customer-ingest') as HTMLInputElement;
+    expect(input).toBeInTheDocument();
+    expect(input.value).toBe('30');
+
+    // Attempt to set to 120 -> should clamp to 90
+    fireEvent.change(input, { target: { value: '120' } });
+    expect(input.value).toBe('90');
+
+    // Attempt to set to -5 -> should clamp to 1
+    fireEvent.change(input, { target: { value: '-5' } });
+    expect(input.value).toBe('1');
+  });
+
+  it('triggers on-demand housekeeping and renders the purged execution report', async () => {
+    render(
+      <AdminRouteStudio
+        routes={mockRoutes}
+        onToggleStatus={() => {}}
+        onEditRoute={() => {}}
+        onCreateRoute={() => {}}
+      />
+    );
+
+    const runBtn = screen.getByTestId('run-housekeeping-btn-csv-customer-ingest');
+    expect(runBtn).toBeInTheDocument();
+    fireEvent.click(runBtn);
+
+    // After async mock resolution, the report is displayed
+    const reportBanner = await screen.findByTestId('housekeeping-report-csv-customer-ingest');
+    expect(reportBanner).toBeInTheDocument();
+    expect(reportBanner).toHaveTextContent(/Purged/i);
+    expect(reportBanner).toHaveTextContent(/jobs/i);
+  });
 });
+
 

@@ -91,5 +91,65 @@ class UserJobControllerTest {
             .andExpect(content().contentType("text/csv"))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("Job ID,File Name,Status,Total Records")));
     }
+
+    @Test
+    @DisplayName("Retries an individual record with mode FROM_FAILED_STEP and FROM_START")
+    void shouldRetryIndividualRecord() throws Exception {
+        BulkJobEntity job = new BulkJobEntity();
+        job.setJobId("job-retry-rec-test");
+        job.setFileName("retry_rec.csv");
+        job.setSourceUri("upload://retry_rec.csv");
+        job.setProcessId("process-1");
+        job.setStatus("COMPLETED_WITH_ERRORS");
+        job.setTotalRecords(10L);
+        job.setProcessedRecords(10L);
+        job.setSuccessfulRecords(9L);
+        job.setFailedRecords(1L);
+        bulkJobRepository.save(job);
+
+        // Retry from failed step
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/user/jobs/{jobId}/records/{recordId}/retry", "job-retry-rec-test", "rec-101")
+                .contentType("application/json")
+                .content("{\"mode\":\"FROM_FAILED_STEP\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("RETRY_QUEUED"))
+            .andExpect(jsonPath("$.mode").value("FROM_FAILED_STEP"))
+            .andExpect(jsonPath("$.recordId").value("rec-101"));
+
+        // Replay full pipeline from start
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/user/jobs/{jobId}/records/{recordId}/retry", "job-retry-rec-test", "rec-101")
+                .contentType("application/json")
+                .content("{\"mode\":\"FROM_START\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("RETRY_QUEUED"))
+            .andExpect(jsonPath("$.mode").value("FROM_START"));
+    }
+
+    @Test
+    @DisplayName("Retries a batch and triggers force-execute on End Node barrier")
+    void shouldRetryBatchAndForceExecuteBarrier() throws Exception {
+        BulkJobEntity job = new BulkJobEntity();
+        job.setJobId("job-batch-barrier-test");
+        job.setFileName("batch_barrier.csv");
+        job.setSourceUri("upload://batch_barrier.csv");
+        job.setProcessId("process-1");
+        job.setStatus("RUNNING");
+        job.setTotalRecords(100L);
+        job.setProcessedRecords(50L);
+        bulkJobRepository.save(job);
+
+        // Retry batch
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/user/jobs/{jobId}/batches/{batchId}/retry", "job-batch-barrier-test", "batch-1")
+                .contentType("application/json")
+                .content("{\"mode\":\"FROM_FAILED_STEP\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("RETRY_QUEUED"))
+            .andExpect(jsonPath("$.batchId").value("batch-1"));
+
+        // Force execute barrier
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/user/jobs/{jobId}/barrier/force-execute", "job-batch-barrier-test"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("BARRIER_RELEASED"));
+    }
 }
 
